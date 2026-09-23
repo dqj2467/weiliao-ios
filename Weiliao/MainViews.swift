@@ -53,7 +53,7 @@ struct LoginView: View {
             .disabled(busy)
             .padding(.horizontal, 32).padding(.top, 28)
             Button("没有账号？注册新用户") {
-                WebFallback.open(host + "/Home/Member/register.html", title: "注册")
+                WebFallback.open(Api.host + "/Home/Member/register.html", title: "注册")
             }
             .font(.system(size: 14)).foregroundColor(.blue).padding(.top, 24)
             Spacer()
@@ -260,8 +260,8 @@ struct Avatar: View {
 extension Color {
     init(hex: UInt32) {
         self.init(.sRGB,
-                  Double((hex >> 16) & 0xFF) / 255,
-                  Double((hex >> 8) & 0xFF) / 255,
-                  Double(hex & 0xFF) / 255, 1)
+                  red: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255, opacity: 1)
     }
 }
