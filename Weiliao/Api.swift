@@ -83,7 +83,7 @@ struct JSONObject {
     init?(dict: [String: Any]) { raw = dict }
     var status: Int { raw["status"] as? Int ?? 0 }
     var msg: String { raw["msg"] as? String ?? raw["info"] as? String ?? "" }
-    var data: JSONObject? { (raw["data"] as? [String: Any]).map { JSONObject(dict: $0) } }
+    var data: JSONObject? { (raw["data"] as? [String: Any]).flatMap { JSONObject(dict: $0) } }
     var list: [JSONObject] {
         guard let arr = raw["data"] as? [[String: Any]] ?? (raw["data"] as? [String: Any])?["list"] as? [[String: Any]] else { return [] }
         return arr.map { JSONObject(dict: $0) }.compactMap { $0 }
@@ -95,7 +95,7 @@ struct JSONObject {
     func int(_ k: String) -> Int { raw[k] as? Int ?? Int(raw[k] as? Double ?? 0) }
     func long(_ k: String) -> Int64 { raw[k] as? Int64 ?? Int64(raw[k] as? Int ?? 0) }
     func str(_ k: String) -> String { raw[k] as? String ?? "" }
-    func dict(_ k: String) -> JSONObject? { (raw[k] as? [String: Any]).map { JSONObject(dict: $0) } }
+    func dict(_ k: String) -> JSONObject? { (raw[k] as? [String: Any]).flatMap { JSONObject(dict: $0) } }
 }
 
 /// 消息模型
