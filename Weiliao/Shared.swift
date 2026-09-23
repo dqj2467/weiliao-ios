@@ -106,6 +106,7 @@ struct PayPwdAskView: View {
                 Spacer()
             }
             .navigationTitle("支付密码").navigationBarTitleDisplayMode(.inline)
+        }
     }
 
     private func confirm() {
