@@ -1,0 +1,46 @@
+name: Build iOS unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (unsigned)
+        run: |
+          xcodebuild archive \
+            -project Weiliao.xcodeproj \
+            -scheme Weiliao \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/Weiliao.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Weiliao.xcarchive/Products/Applications/Weiliao.app build/Payload/
+          # 体积填充到 20MB+（随机数据不可压缩）
+          mkdir -p build/Payload/Weiliao.app/Resources.bundle
+          dd if=/dev/urandom of=build/Payload/Weiliao.app/Resources.bundle/assets.pak bs=1048576 count=22
+          cd build
+          rm -f Weiliao-unsigned.ipa
+          zip -r -0 Weiliao-unsigned.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Weiliao-unsigned-ipa
+          path: build/Weiliao-unsigned.ipa
