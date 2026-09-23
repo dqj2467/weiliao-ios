@@ -51,8 +51,8 @@ struct H5MainWeb: UIViewRepresentable {
         wv.scrollView.bounces = false
         wv.scrollView.contentInsetAdjustmentBehavior = .never
         wv.scrollView.backgroundColor = .white
-        // 横向位移硬锁：页面若有超宽元素也不允许左右拖动
-        wv.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
+        // 横向位移硬锁：监听 scrollView 的 contentOffset，横移立即归零
+        wv.scrollView.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
         // 同步原生会话给 WebView（登录态带过去）
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
@@ -64,7 +64,7 @@ struct H5MainWeb: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
-        uiView.removeObserver(coordinator, forKeyPath: "contentOffset")
+        uiView.scrollView.removeObserver(coordinator, forKeyPath: "contentOffset")
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
