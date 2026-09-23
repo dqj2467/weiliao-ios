@@ -12,9 +12,63 @@ struct RootView: View {
     @AppStorage("logged_in") var loggedIn = false
     var body: some View {
         if loggedIn {
-            MainView()
+            H5MainScreen(loggedIn: $loggedIn)
         } else {
             LoginView(loggedIn: $loggedIn)
+        }
+    }
+}
+
+// MARK: - 主界面 = H5 网页版主界面（登录后全屏打开，会话失效自动回原生登录页）
+
+struct H5MainScreen: View {
+    @Binding var loggedIn: Bool
+
+    var body: some View {
+        H5MainWeb(loggedIn: $loggedIn, url: Api.host + "/Home/Qun/index.html")
+            .edgesIgnoringSafeArea(.all)
+    }
+}
+
+struct H5MainWeb: UIViewRepresentable {
+    @Binding var loggedIn: Bool
+    var url: String
+
+    func makeUIView(context: Context) -> WKWebView {
+        let cfg = WKWebViewConfiguration()
+        cfg.websiteDataStore = .default()
+        // 注入 viewport 锁定（防页面过宽/横向晃动）
+        let fix = """
+        (function(){var m=document.querySelector('meta[name="viewport"]');if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}m.setAttribute('content','width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no');var s=document.createElement('style');s.textContent='html,body{overflow-x:hidden!important;max-width:100vw!important;}';(document.head||document.documentElement).appendChild(s);})();
+        """
+        cfg.userContentController.addUserScript(
+            WKUserScript(source: fix, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        let wv = WKWebView(frame: .zero, configuration: cfg)
+        wv.navigationDelegate = context.coordinator
+        // 与安卓 WebView 观感对齐：禁横向回弹/晃动
+        wv.scrollView.alwaysBounceHorizontal = false
+        wv.scrollView.bounces = false
+        wv.scrollView.contentInsetAdjustmentBehavior = .never
+        // 同步原生会话给 WebView（登录态带过去）
+        if let cookies = HTTPCookieStorage.shared.cookies {
+            for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
+        }
+        if let u = URL(string: url) { wv.load(URLRequest(url: u)) }
+        return wv
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    class Coordinator: NSObject, WKNavigationDelegate {
+        var parent: H5MainWeb
+        init(_ p: H5MainWeb) { parent = p }
+        // 网页会话失效会 302 到登录页 → 切回原生登录页（与安卓 checkSession 行为一致）
+        func webView(_ view: WKWebView, didCommit navigation: WKNavigation!) {
+            if let u = view.url?.absoluteString, u.contains("User_login") {
+                DispatchQueue.main.async { self.parent.loggedIn = false }
+            }
         }
     }
 }
