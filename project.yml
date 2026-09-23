@@ -24,6 +24,8 @@ targets:
       path: Weiliao/Info.plist
       properties:
         CFBundleDisplayName: 微聊
+        CFBundleShortVersionString: "1.7"
+        CFBundleVersion: "7"
         UILaunchScreen: {}
         NSAppTransportSecurity: { NSAllowsArbitraryLoads: true }
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
