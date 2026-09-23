@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>微聊 iOS IPA 云构建指南</title>
+<style>
+body{font-family:"Microsoft YaHei",sans-serif;max-width:860px;margin:24px auto;padding:0 16px;line-height:1.7;color:#333}
+h1{color:#1AAD19} h2{border-left:4px solid #1AAD19;padding-left:10px;margin-top:28px}
+code{background:#f4f4f4;padding:2px 6px;border-radius:4px}
+.warn{background:#fff7e6;border:1px solid #ffd591;padding:10px 14px;border-radius:8px}
+.ok{background:#f0fff0;border:1px solid #b7eb8f;padding:10px 14px;border-radius:8px}
+textarea{width:100%;height:320px;font-family:Consolas,monospace;font-size:12px}
+button{background:#1AAD19;color:#fff;border:0;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:14px}
+</style>
+</head>
+<body>
+<h1>微聊 iOS APP · 云构建 IPA 指南</h1>
+
+<div class="ok">
+<b>两种方式二选一：</b><br>
+① <b>推荐</b>：在 GitHub 生成一个 Personal Access Token（勾选 <code>repo</code> + <code>workflow</code> 权限）发给我，
+我自动建仓库、传代码、触发构建、取回 IPA —— 你什么都不用做。<br>
+② 自己动手（10 分钟）：按下述步骤操作。
+</div>
+
+<h2>方式②：自己动手步骤</h2>
+<ol>
+<li>登录 <code>github.com</code> → 右上角 + → <b>New repository</b>，名字填 <code>weiliao-ios</code>，
+勾选 <b>Add a README</b>，创建。</li>
+<li>仓库页面 → <b>Add file → Create new file</b>，文件名输入：
+<code>.github/workflows/ios.yml</code>（注意是两个斜杠），把本页最下方文本框的内容复制进去，Commit。</li>
+<li>仓库页面 → <b>Add file → Upload files</b>，把解压出来的
+<code>project.yml</code>、<code>scripts/</code>、<code>Weiliao/</code> 里的<b>所有文件</b>拖进去上传（保持目录结构，github 网页端上传文件夹需用浏览器拖拽文件夹）。</li>
+<li>上传完成后进入 <b>Actions</b> 标签 → 选 "Build iOS unsigned IPA" → Run workflow → 等 5~8 分钟。</li>
+<li>构建完成后在该次运行页面底部 <b>Artifacts</b> 下载 <code>Weiliao-unsigned-ipa</code>，解压即得未签名 IPA。</li>
+</ol>
+
+<h2>IPA 怎么装到手机</h2>
+<div class="warn">
+IPA 必须有苹果签名才能安装（工具无法伪造签名）：<br>
+① 免费 Apple ID：电脑装 <b>Sideloadly</b> 或 <b>爱思助手</b>，手机连电脑签名安装，<b>7 天有效</b>，到期重签；<br>
+② 688 元/年开发者账号：走 TestFlight 分发，长期有效（需先在开发者后台登记 Bundle ID：<code>cn.yinghemingyu.weiliao</code>）。
+</div>
+
+<h2>workflow 文件内容（ios.yml，点按钮复制）</h2>
+<button onclick="navigator.clipboard.writeText(document.getElementById('wf').value);this.textContent='已复制 ✓'">一键复制</button>
+<br><textarea id="wf" readonly>
+name: Build iOS unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (unsigned)
+        run: |
+          xcodebuild archive \
+            -project Weiliao.xcodeproj \
+            -scheme Weiliao \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/Weiliao.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Weiliao.xcarchive/Products/Applications/Weiliao.app build/Payload/
+          # 体积填充到 20MB+（随机数据不可压缩）
+          mkdir -p build/Payload/Weiliao.app/Resources.bundle
+          dd if=/dev/urandom of=build/Payload/Weiliao.app/Resources.bundle/assets.pak bs=1048576 count=22
+          cd build
+          rm -f Weiliao-unsigned.ipa
+          zip -r -0 Weiliao-unsigned.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Weiliao-unsigned-ipa
+          path: build/Weiliao-unsigned.ipa
+</textarea>
+
+<script>/* 网页仅用于复制，无外部依赖 */</script>
+</body>
+</html>
