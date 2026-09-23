@@ -1,0 +1,32 @@
+name: Weiliao
+options:
+  bundleIdPrefix: cn.yinghemingyu
+  deploymentTarget: { iOS: "14.0" }
+  createIntermediateGroups: true
+  xcodeVersion: "15.4"
+  postGenCommand: bash scripts/fix_project_format.sh
+targets:
+  Weiliao:
+    type: application
+    platform: iOS
+    sources:
+      - path: Weiliao
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cn.yinghemingyu.weiliao
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_ALLOWED: "NO"
+        MARKETING_VERSION: "3.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+    info:
+      path: Weiliao/Info.plist
+      properties:
+        CFBundleDisplayName: 微聊
+        NSAppTransportSecurity: { NSAllowsArbitraryLoads: true }
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSCameraUsageDescription: 用于拍照发送图片
+        NSMicrophoneUsageDescription: 用于发送语音消息
+        NSPhotoLibraryUsageDescription: 用于选择图片发送
+        ITSAppUsesNonExemptEncryption: false
