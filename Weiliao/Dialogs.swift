@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 
 /// 原生弹窗工具（iOS14 兼容，基于 UIAlertController 挂 keyWindow）
 final class PayDialogs {
