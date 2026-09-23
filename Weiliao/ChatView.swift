@@ -65,8 +65,7 @@ struct ChatView: View {
                 }
             }
             HStack(spacing: 8) {
-                TextField("说点什么…", text: $input, axis: .vertical)
-                    .lineLimit(1...4)
+                TextField("说点什么…", text: $input)
                     .padding(8).background(Color(.systemGray6)).cornerRadius(6)
                 Button(action: sendVoiceHint) {
                     Text("按住说话").frame(width: 72, height: 34)
