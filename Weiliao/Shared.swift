@@ -7,14 +7,18 @@ import AVFoundation
 final class WebFallback: ObservableObject {
     static let shared = WebFallback()
     static var logoutFlag = false
-    @Published var url: String?
-    @Published var title: String = ""
+    @Published var item: WebItem?
     static func open(_ u: String, title: String) {
         DispatchQueue.main.async {
-            shared.url = u
-            shared.title = title
+            shared.item = WebItem(url: u, title: title)
         }
     }
+}
+
+struct WebItem: Identifiable {
+    var url: String
+    var title: String
+    var id: String { url }
 }
 
 final class PayPwdSheet: ObservableObject {
@@ -32,15 +36,13 @@ struct RootContainer: View {
 
     var body: some View {
         RootView()
-            .sheet(item: $router) { item in
+            .sheet(item: $router.item) { item in
                 WebViewScreen(url: item.url, title: item.title)
             }
             .sheet(isPresented: $pwd.showSet) { PayPwdSetView() }
             .sheet(isPresented: $pwd.showAsk) { PayPwdAskView() }
     }
 }
-
-extension WebFallback: Identifiable { var id: String { url ?? "" } }
 
 // MARK: - 网页兜底容器
 
