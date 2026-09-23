@@ -19,7 +19,7 @@ struct RootView: View {
     }
 }
 
-// MARK: - 登录
+// MARK: - 登录（与安卓 LoginActivity 一比一：复刻网页版 MUI 风格）
 
 struct LoginView: View {
     @Binding var loggedIn: Bool
@@ -27,41 +27,115 @@ struct LoginView: View {
     @State var pwd = ""
     @State var busy = false
     @State var err = ""
+    @State var pwdVisible = false
+    @State var showSignup = false
+
+    // 与安卓同款色板（网页版主色 #45C01A）
+    private let green = Color(hex: 0x45C01A)
+    private let bgGray = Color(hex: 0xEFEFEF)
+    private let barGray = Color(hex: 0xF7F7F7)
+    private let hairline = Color(hex: 0xE5E5E5)
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer().frame(height: 72)
-            Text("微聊").font(.system(size: 34, weight: .bold)).foregroundColor(.green)
-            Text("登录后和好友畅聊").font(.system(size: 14)).foregroundColor(.gray).padding(.top, 6)
-            Spacer().frame(height: 36)
-            TextField("手机号", text: $phone)
-                .keyboardType(.phonePad)
-                .padding(12).background(Color(.systemGray6)).cornerRadius(8)
-                .padding(.horizontal, 32)
-            SecureField("密码", text: $pwd)
-                .padding(12).background(Color(.systemGray6)).cornerRadius(8)
-                .padding(.horizontal, 32).padding(.top, 12)
-            if !err.isEmpty {
-                Text(err).font(.system(size: 13)).foregroundColor(.red).padding(.top, 8)
+            // 顶部导航栏（MUI bar：浅灰底 + 居中标题）
+            ZStack {
+                barGray
+                Text("登录").font(.system(size: 17)).foregroundColor(Color(hex: 0x262626))
+            }.frame(height: 48)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // logo（网页版 Public/Home/member/imgs/log.png）
+                    Image("Logo").resizable().scaledToFit()
+                        .frame(height: 120)
+                        .padding(.horizontal, 15).padding(.top, 10).padding(.bottom, 4)
+
+                    // 页签：用户登录 | 用户注册（白底，激活绿下划线）
+                    HStack(spacing: 0) {
+                        tabCell("用户登录", active: true) {}
+                        tabCell("用户注册", active: false) { showSignup = true }
+                    }
+                    .frame(height: 40)
+                    .background(Color.white)
+                    .padding(.horizontal, 30)
+
+                    // 输入组（白卡 + 细分隔线，同 MUI input-group）
+                    VStack(spacing: 0) {
+                        TextField("请输入手机号", text: $phone)
+                            .keyboardType(.phonePad)
+                            .font(.system(size: 16))
+                            .frame(height: 45).padding(.horizontal, 15)
+                        Rectangle().fill(hairline).frame(height: 0.5)
+                        HStack(spacing: 0) {
+                            Group {
+                                if pwdVisible {
+                                    TextField("请输入密码", text: $pwd)
+                                } else {
+                                    SecureField("请输入密码", text: $pwd)
+                                }
+                            }
+                            .font(.system(size: 16))
+                            .frame(height: 45).padding(.leading, 15)
+                            Button(pwdVisible ? "隐藏" : "显示") { pwdVisible.toggle() }
+                                .font(.system(size: 13)).foregroundColor(green)
+                                .padding(.leading, 8).padding(.trailing, 15)
+                        }
+                    }
+                    .background(Color.white)
+                    .padding(.horizontal, 15).padding(.top, 10)
+
+                    if !err.isEmpty {
+                        Text(err).font(.system(size: 13)).foregroundColor(.red).padding(.top, 8)
+                    }
+
+                    // 登录按钮（网页版 .submit：#45C01A 通栏绿块）
+                    Button(action: login) {
+                        Text(busy ? "登录中…" : "登录")
+                            .font(.system(size: 16)).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).frame(height: 42)
+                            .background(green).cornerRadius(4)
+                    }
+                    .disabled(busy)
+                    .padding(.horizontal, 15).padding(.top, 24)
+
+                    // 注册按钮（网页版第二颗 .submit）
+                    Button(action: { showSignup = true }) {
+                        Text("注册")
+                            .font(.system(size: 16)).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).frame(height: 42)
+                            .background(green).cornerRadius(4)
+                    }
+                    .padding(.horizontal, 15).padding(.top, 8)
+                    Spacer().frame(height: 30)
+                }
             }
-            Button(action: login) {
-                Text(busy ? "登录中…" : "登 录")
-                    .frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Color(hex: 0x1AAD19)).foregroundColor(.white)
-                    .cornerRadius(8)
+        }
+        .background(bgGray.ignoresSafeArea())
+        // 注册 = 安卓 WebActivity standalone：全屏网页，页面自带头部
+        .fullScreenCover(isPresented: $showSignup) {
+            H5ChatScreen(url: Api.host + "/Home/Member/signup.html", title: "用户注册")
+        }
+    }
+
+    private func tabCell(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 0) {
+                Text(label).font(.system(size: 14))
+                    .foregroundColor(Color(hex: active ? 0x4C4C4C : 0x999999))
+                Rectangle().fill(active ? green : Color.clear)
+                    .frame(height: 2)
             }
-            .disabled(busy)
-            .padding(.horizontal, 32).padding(.top, 28)
-            Button("没有账号？注册新用户") {
-                WebFallback.open(Api.host + "/Home/Member/signup.html", title: "用户注册")
-            }
-            .font(.system(size: 14)).foregroundColor(.blue).padding(.top, 24)
-            Spacer()
+            .frame(maxWidth: .infinity)
         }
     }
 
     private func login() {
         err = ""
+        guard phone.count >= 5, pwd.count >= 4 else {
+            err = "请输入手机号和密码"
+            return
+        }
         busy = true
         Api.shared.post("/Home/Member/login.html",
                         form: ["phone": phone, "password": pwd]) { r in
