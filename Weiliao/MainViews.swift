@@ -169,7 +169,11 @@ struct ConvList: View {
     @Binding var convs: [ConvItem]
     var body: some View {
         List(convs) { c in
-            NavigationLink(destination: ChatView(isGroup: c.isGroup, id: c.id, title: c.title)) {
+            NavigationLink(destination: H5ChatScreen(
+                url: c.isGroup
+                    ? Api.host + "/Home/Index/index.html?id=\(c.id)&_lc=1"
+                    : Api.host + "/Home/Index/friendmsn.html?friendid=\(c.id)",
+                title: c.title)) {
                 HStack {
                     Avatar(url: c.ico, fallback: c.title, size: 48)
                     Text(c.title).font(.system(size: 16, weight: .semibold))
