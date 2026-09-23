@@ -44,6 +44,13 @@ struct H5MainWeb: UIViewRepresentable {
         """
         cfg.userContentController.addUserScript(
             WKUserScript(source: fix, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        // v1.7 追加：宽度自适应约束（iOS WKWebView 不完全遵守 CSS overflow-x:hidden，
+        // 内容超宽时把 html/body 钳到可视宽度，从根上消灭横向可拖动的空间）
+        let widthFix = """
+        (function(){function fx(){var d=document.documentElement,b=document.body;if(!d||!b)return;var w=d.clientWidth;if(w>0&&(d.scrollWidth>w+1||b.scrollWidth>w+1)){d.style.width=w+'px';b.style.width=w+'px';d.style.overflowX='hidden';b.style.overflowX='hidden';}}setTimeout(fx,60);setTimeout(fx,600);setTimeout(fx,1800);window.addEventListener('resize',fx);})();
+        """
+        cfg.userContentController.addUserScript(
+            WKUserScript(source: widthFix, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let wv = WKWebView(frame: .zero, configuration: cfg)
         wv.navigationDelegate = context.coordinator
         // 与安卓 WebView 观感对齐：禁横向回弹/晃动
@@ -51,8 +58,14 @@ struct H5MainWeb: UIViewRepresentable {
         wv.scrollView.bounces = false
         wv.scrollView.contentInsetAdjustmentBehavior = .never
         wv.scrollView.backgroundColor = .white
-        // 横向位移硬锁：监听 scrollView 的 contentOffset，横移立即归零
+        // KVO 兜底（v1.6）：监听 scrollView 的 contentOffset，横移立即归零
         wv.scrollView.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
+        // v1.7 主锁：scrollView 代理钳制（拖动中每帧 + 拖动结束目标点都把 x 归零）
+        let proxy = ScrollLockDelegate()
+        proxy.orig = wv.scrollView.delegate
+        wv.scrollView.delegate = proxy
+        context.coordinator.lockDelegate = proxy
+        context.coordinator.web = wv
         // 同步原生会话给 WebView（登录态带过去）
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
@@ -64,6 +77,7 @@ struct H5MainWeb: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.scrollView.delegate = nil
         uiView.scrollView.removeObserver(coordinator, forKeyPath: "contentOffset")
     }
 
@@ -71,19 +85,30 @@ struct H5MainWeb: UIViewRepresentable {
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var parent: H5MainWeb
+        var lockDelegate: ScrollLockDelegate?
+        weak var web: WKWebView?
         init(_ p: H5MainWeb) { parent = p }
-        // 横向位移硬锁：横移立即归零（内容超宽也不让左右晃）
+        // KVO 兜底：横向位移归零
         override func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                    change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
             if keyPath == "contentOffset", let sv = object as? UIScrollView, sv.contentOffset.x != 0 {
                 sv.contentOffset.x = 0
             }
         }
+        // WKWebView 导航后会把内部代理设回去 → commit/finish 时重新接管
+        private func reassert(_ view: WKWebView) {
+            if let cur = view.scrollView.delegate, cur !== lockDelegate { lockDelegate?.orig = cur }
+            view.scrollView.delegate = lockDelegate
+        }
         // 网页会话失效会 302 到登录页 → 切回原生登录页（与安卓 checkSession 行为一致）
         func webView(_ view: WKWebView, didCommit navigation: WKNavigation!) {
+            reassert(view)
             if let u = view.url?.absoluteString, u.contains("User_login") {
                 DispatchQueue.main.async { self.parent.loggedIn = false }
             }
+        }
+        func webView(_ view: WKWebView, didFinish navigation: WKNavigation!) {
+            reassert(view)
         }
     }
 }
