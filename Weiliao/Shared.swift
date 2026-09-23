@@ -90,6 +90,8 @@ struct WebViewScreen: View {
 struct WebViewHost: UIViewRepresentable {
     var url: String
 
+    func makeCoordinator() -> ScrollLockCoordinator { ScrollLockCoordinator() }
+
     func makeUIView(context: Context) -> WKWebView {
         let cfg = WKWebViewConfiguration()
         cfg.websiteDataStore = .default()
@@ -104,6 +106,9 @@ struct WebViewHost: UIViewRepresentable {
         wv.scrollView.alwaysBounceHorizontal = false
         wv.scrollView.bounces = false
         wv.scrollView.contentInsetAdjustmentBehavior = .never
+        wv.scrollView.backgroundColor = .white
+        // 横向位移硬锁：横移立即归零（内容超宽也不让左右晃）
+        wv.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
         // 同步原生会话给 WebView
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
@@ -113,6 +118,20 @@ struct WebViewHost: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: ScrollLockCoordinator) {
+        uiView.removeObserver(coordinator, forKeyPath: "contentOffset")
+    }
+}
+
+/// 横向位移硬锁观察器（仅 iOS 端，不影响任何网页代码）
+final class ScrollLockCoordinator: NSObject {
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?,
+                               change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "contentOffset", let sv = object as? UIScrollView, sv.contentOffset.x != 0 {
+            sv.contentOffset.x = 0
+        }
+    }
 }
 
 // MARK: - 支付密码（六格）
