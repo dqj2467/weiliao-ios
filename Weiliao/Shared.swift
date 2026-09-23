@@ -101,14 +101,30 @@ struct WebViewHost: UIViewRepresentable {
         """
         cfg.userContentController.addUserScript(
             WKUserScript(source: fix, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        // v1.7 追加：宽度自适应约束。iOS 的 WKWebView 不完全遵守 CSS overflow-x:hidden
+        // （安卓遵守，所以安卓端不晃、iOS 端仍能拖）——文档加载后若内容超宽，
+        // 直接把 html/body 宽度钳到可视宽度并隐藏横向溢出，从根上消灭超宽 contentSize。
+        let widthFix = """
+        (function(){function fx(){var d=document.documentElement,b=document.body;if(!d||!b)return;var w=d.clientWidth;if(w>0&&(d.scrollWidth>w+1||b.scrollWidth>w+1)){d.style.width=w+'px';b.style.width=w+'px';d.style.overflowX='hidden';b.style.overflowX='hidden';}}setTimeout(fx,60);setTimeout(fx,600);setTimeout(fx,1800);window.addEventListener('resize',fx);})();
+        """
+        cfg.userContentController.addUserScript(
+            WKUserScript(source: widthFix, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let wv = WKWebView(frame: .zero, configuration: cfg)
         // 与安卓 WebView 观感对齐：禁掉横向回弹/晃动（页面稍宽时手按屏幕左右抖）
         wv.scrollView.alwaysBounceHorizontal = false
         wv.scrollView.bounces = false
         wv.scrollView.contentInsetAdjustmentBehavior = .never
         wv.scrollView.backgroundColor = .white
-        // 横向位移硬锁：监听 scrollView 的 contentOffset，横移立即归零
+        // KVO 兜底（v1.6）：监听 scrollView 的 contentOffset，横移立即归零
         wv.scrollView.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
+        // v1.7 主锁：scrollView 代理钳制。KVO 在手指拖动中会被手势逐帧覆盖（拖动仍会晃），
+        // 代理锁在「每个滚动帧」和「拖动结束目标点」两处都把 x 归零，配合上方宽度约束才真正拖不动。
+        let proxy = ScrollLockDelegate()
+        proxy.orig = wv.scrollView.delegate
+        wv.scrollView.delegate = proxy
+        context.coordinator.lockDelegate = proxy
+        context.coordinator.web = wv
+        wv.navigationDelegate = context.coordinator
         // 同步原生会话给 WebView
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
@@ -120,17 +136,71 @@ struct WebViewHost: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: ScrollLockCoordinator) {
+        uiView.scrollView.delegate = nil
         uiView.scrollView.removeObserver(coordinator, forKeyPath: "contentOffset")
     }
 }
 
-/// 横向位移硬锁观察器（仅 iOS 端，不影响任何网页代码）
-final class ScrollLockCoordinator: NSObject {
+/// v1.7 横向锁（仅 iOS 端，不影响任何网页代码 / 安卓工程）：
+/// scrollView 代理转发器——每个滚动帧钳 x=0，拖动目标点钳 x=0，其余全部转发给
+/// WKWebView 自己的内部代理，滚动行为不受影响。
+final class ScrollLockDelegate: NSObject, UIScrollViewDelegate {
+    weak var orig: UIScrollViewDelegate?
+    private func clamp(_ sv: UIScrollView) {
+        if sv.contentOffset.x != 0 { sv.contentOffset.x = 0 }
+    }
+    func scrollViewDidScroll(_ sv: UIScrollView) {
+        clamp(sv)
+        orig?.scrollViewDidScroll?(sv)
+    }
+    func scrollViewWillBeginDragging(_ sv: UIScrollView) {
+        orig?.scrollViewWillBeginDragging?(sv)
+    }
+    func scrollViewWillEndDragging(_ sv: UIScrollView, withVelocity velocity: CGPoint,
+                                   targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        targetContentOffset.pointee.x = 0
+        orig?.scrollViewWillEndDragging?(sv, withVelocity: velocity, targetContentOffset: targetContentOffset)
+    }
+    func scrollViewDidEndDragging(_ sv: UIScrollView, willDecelerate decelerate: Bool) {
+        orig?.scrollViewDidEndDragging?(sv, willDecelerate: decelerate)
+    }
+    func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
+        orig?.scrollViewDidEndDecelerating?(sv)
+    }
+    func scrollViewDidEndScrollingAnimation(_ sv: UIScrollView) {
+        orig?.scrollViewDidEndScrollingAnimation?(sv)
+    }
+    func scrollViewDidScrollToTop(_ sv: UIScrollView) {
+        orig?.scrollViewDidScrollToTop?(sv)
+    }
+    // WKWebView 内部代理实现了这些方法 → 用消息转发兜底，避免内部行为丢失
+    override func responds(to aSelector: Selector!) -> Bool {
+        super.responds(to: aSelector) || (orig?.responds(to: aSelector) ?? false)
+    }
+    override func forwardingTarget(for aSelector: Selector!) -> Any? {
+        (orig?.responds(to: aSelector) ?? false) ? orig! : super.forwardingTarget(for: aSelector)
+    }
+}
+
+/// KVO 兜底 + 导航回调（WKWebView 会在导航后把内部代理设回去 → 每次 commit 重新接管）
+final class ScrollLockCoordinator: NSObject, WKNavigationDelegate {
+    var lockDelegate: ScrollLockDelegate?
+    weak var web: WKWebView?
     override func observeValue(forKeyPath keyPath: String?, of object: Any?,
                                change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if keyPath == "contentOffset", let sv = object as? UIScrollView, sv.contentOffset.x != 0 {
             sv.contentOffset.x = 0
         }
+    }
+    func webView(_ view: WKWebView, didCommit navigation: WKNavigation!) {
+        reassert(view)
+    }
+    func webView(_ view: WKWebView, didFinish navigation: WKNavigation!) {
+        reassert(view)
+    }
+    private func reassert(_ view: WKWebView) {
+        if let cur = view.scrollView.delegate, cur !== lockDelegate { lockDelegate?.orig = cur }
+        view.scrollView.delegate = lockDelegate
     }
 }
 
