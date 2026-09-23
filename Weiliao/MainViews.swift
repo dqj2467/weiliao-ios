@@ -53,7 +53,7 @@ struct LoginView: View {
             .disabled(busy)
             .padding(.horizontal, 32).padding(.top, 28)
             Button("没有账号？注册新用户") {
-                WebFallback.open(Api.host + "/Home/Member/register.html", title: "注册")
+                WebFallback.open(Api.host + "/Home/Member/signup.html", title: "用户注册")
             }
             .font(.system(size: 14)).foregroundColor(.blue).padding(.top, 24)
             Spacer()
