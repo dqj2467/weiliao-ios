@@ -44,6 +44,32 @@ struct RootContainer: View {
     }
 }
 
+// MARK: - H5 聊天容器（与安卓 WebActivity 同方案：原生壳 + 全屏 H5 聊天页）
+
+struct H5ChatScreen: View {
+    var url: String
+    var title: String
+    @Environment(\.presentationMode) var mode
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            WebViewHost(url: url)
+            // 浮动返回（页面自带头部，这个只兜底用）
+            Button(action: { mode.wrappedValue.dismiss() }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .bold))
+                    .frame(width: 32, height: 32)
+                    .background(Color.black.opacity(0.22))
+                    .foregroundColor(.white)
+                    .clipShape(Circle())
+            }
+            .padding(.leading, 10)
+            .padding(.top, 6)
+        }
+        .navigationBarHidden(true)
+    }
+}
+
 // MARK: - 网页兜底容器
 
 struct WebViewScreen: View {
