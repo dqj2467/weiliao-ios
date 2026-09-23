@@ -93,7 +93,17 @@ struct WebViewHost: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let cfg = WKWebViewConfiguration()
         cfg.websiteDataStore = .default()
+        // 注入 viewport 锁定：页面宽度=设备宽、禁缩放、禁横向溢出（与安卓 WebView 观感一致）
+        let fix = """
+        (function(){var m=document.querySelector('meta[name="viewport"]');if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}m.setAttribute('content','width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no');var s=document.createElement('style');s.textContent='html,body{overflow-x:hidden!important;max-width:100vw!important;}';(document.head||document.documentElement).appendChild(s);})();
+        """
+        cfg.userContentController.addUserScript(
+            WKUserScript(source: fix, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let wv = WKWebView(frame: .zero, configuration: cfg)
+        // 与安卓 WebView 观感对齐：禁掉横向回弹/晃动（页面稍宽时手按屏幕左右抖）
+        wv.scrollView.alwaysBounceHorizontal = false
+        wv.scrollView.bounces = false
+        wv.scrollView.contentInsetAdjustmentBehavior = .never
         // 同步原生会话给 WebView
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
