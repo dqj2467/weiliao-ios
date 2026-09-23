@@ -107,8 +107,8 @@ struct WebViewHost: UIViewRepresentable {
         wv.scrollView.bounces = false
         wv.scrollView.contentInsetAdjustmentBehavior = .never
         wv.scrollView.backgroundColor = .white
-        // 横向位移硬锁：横移立即归零（内容超宽也不让左右晃）
-        wv.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
+        // 横向位移硬锁：监听 scrollView 的 contentOffset，横移立即归零
+        wv.scrollView.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
         // 同步原生会话给 WebView
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
@@ -120,7 +120,7 @@ struct WebViewHost: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: ScrollLockCoordinator) {
-        uiView.removeObserver(coordinator, forKeyPath: "contentOffset")
+        uiView.scrollView.removeObserver(coordinator, forKeyPath: "contentOffset")
     }
 }
 
