@@ -27,7 +27,7 @@ struct H5MainScreen: View {
 
     var body: some View {
         H5MainWeb(loggedIn: $loggedIn, url: Api.host + "/Home/Qun/index.html")
-            .edgesIgnoringSafeArea(.all)
+            .edgesIgnoringSafeArea(.bottom)   // 顶部留出状态栏/刘海区，页面头部不被挡
     }
 }
 
@@ -50,6 +50,9 @@ struct H5MainWeb: UIViewRepresentable {
         wv.scrollView.alwaysBounceHorizontal = false
         wv.scrollView.bounces = false
         wv.scrollView.contentInsetAdjustmentBehavior = .never
+        wv.scrollView.backgroundColor = .white
+        // 横向位移硬锁：页面若有超宽元素也不允许左右拖动
+        wv.addObserver(context.coordinator, forKeyPath: "contentOffset", options: [], context: nil)
         // 同步原生会话给 WebView（登录态带过去）
         if let cookies = HTTPCookieStorage.shared.cookies {
             for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
@@ -60,11 +63,22 @@ struct H5MainWeb: UIViewRepresentable {
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.removeObserver(coordinator, forKeyPath: "contentOffset")
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var parent: H5MainWeb
         init(_ p: H5MainWeb) { parent = p }
+        // 横向位移硬锁：横移立即归零（内容超宽也不让左右晃）
+        override func observeValue(forKeyPath keyPath: String?, of object: Any?,
+                                   change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+            if keyPath == "contentOffset", let sv = object as? UIScrollView, sv.contentOffset.x != 0 {
+                sv.contentOffset.x = 0
+            }
+        }
         // 网页会话失效会 302 到登录页 → 切回原生登录页（与安卓 checkSession 行为一致）
         func webView(_ view: WKWebView, didCommit navigation: WKNavigation!) {
             if let u = view.url?.absoluteString, u.contains("User_login") {
