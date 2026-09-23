@@ -378,7 +378,7 @@ struct ChatView: View {
     // MARK: - 撤回
 
     private func recall(_ m: Msg) {
-        guard System.currentTimeMillis() / 1000 - m.time <= 120 else { PayDialogs.toast("超过 2 分钟的消息不能撤回"); return }
+        guard Int64(Date().timeIntervalSince1970) - m.time <= 120 else { PayDialogs.toast("超过 2 分钟的消息不能撤回"); return }
         var f = baseParams()
         f["mid"] = String(m.mid)
         Api.shared.post(isGroup ? "/Api/Message/recall.html" : "/Api/Friendmessage/recall.html", form: f) { _ in }
