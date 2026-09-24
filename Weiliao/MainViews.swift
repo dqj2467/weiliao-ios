@@ -156,8 +156,8 @@ struct LoginView: View {
 
                     // 输入组（白卡 + 细分隔线，同 MUI input-group）
                     VStack(spacing: 0) {
-                        TextField("请输入手机号", text: $phone)
-                            .keyboardType(.phonePad)
+                        TextField("请输入账号/手机号", text: $phone)
+                            .keyboardType(.default)
                             .font(.system(size: 16))
                             .frame(height: 45).padding(.horizontal, 15)
                         Rectangle().fill(hairline).frame(height: 0.5)
@@ -227,7 +227,7 @@ struct LoginView: View {
     private func login() {
         err = ""
         guard phone.count >= 5, pwd.count >= 4 else {
-            err = "请输入手机号和密码"
+            err = "请输入账号和密码"
             return
         }
         busy = true
