@@ -274,11 +274,14 @@ struct MainView: View {
     var body: some View {
         VStack(spacing: 0) {
             Group {
-                if tab == 0 { ConvList(convs: $convs) } else { MePage(me: $me) }
+                if tab == 0 { ConvList(convs: $convs) }
+                else if tab == 2 { WebViewHost(url: Api.host + "/Home/Faxian/index.html").ignoresSafeArea(.bottom) }
+                else { MePage(me: $me) }
             }.frame(maxHeight: .infinity)
             Divider()
             HStack(spacing: 0) {
                 tabBtn("微聊", 0)
+                tabBtn("发现", 2)
                 tabBtn("我的", 1)
             }.frame(height: 52).background(Color(.systemGray6))
         }
@@ -374,7 +377,7 @@ struct MePage: View {
                 .padding(.horizontal, 12)
                 MeRow(label: "支付密码") { PayPwdSheet.shared.showSet = true }
                 MeRow(label: "余额明细") { WebFallback.open(Api.host + "/Home/Index/redpacklog.html", title: "余额明细") }
-                MeRow(label: "提现（平台）") { WebFallback.open(Api.host + "/Home/Tixian/index.html", title: "提现") }
+                // 提现（平台）行已删除（2026-09-24 站长要求，与网页版/安卓同步）
                 MeRow(label: "退出登录") {
                     for c in HTTPCookieStorage.shared.cookies ?? [] { HTTPCookieStorage.shared.deleteCookie(c) }
                     WebFallback.logoutFlag = true
