@@ -274,9 +274,14 @@ struct MainView: View {
     var body: some View {
         VStack(spacing: 0) {
             Group {
-                if tab == 0 { ConvList(convs: $convs) }
-                else if tab == 2 { WebViewHost(url: Api.host + "/Home/Faxian/index.html").ignoresSafeArea(.bottom) }
-                else { MePage(me: $me) }
+                if tab == 0 {
+                    ConvList(convs: $convs)
+                } else if tab == 2 {
+                    WebViewHost(url: Api.host + "/Home/Faxian/index.html")
+                        .ignoresSafeArea(edges: .bottom)
+                } else {
+                    MePage(me: $me)
+                }
             }.frame(maxHeight: .infinity)
             Divider()
             HStack(spacing: 0) {
