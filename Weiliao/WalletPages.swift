@@ -149,7 +149,7 @@ struct RedPacketPage: View {
                     Button(action: submit) {
                         Text("塞钱进红包").font(.system(size: 18)).foregroundColor(.white)
                             .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color(hex: isGroup ? 0xFF605E : 0xFFBA00))
+                            .background(Color(hex: UInt32(isGroup ? 0xFF605E : 0xFFBA00)))
                     }.padding(.top, 20)
 
                     if isGroup {
@@ -284,7 +284,8 @@ struct TransferPage: View {
                                 .padding(.top, 6)
                             ScrollView(showsIndicators: false) {
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 6) {
-                                    ForEach(members, id: \.raw) { o in
+                                    ForEach(members.indices, id: \.self) { mi in
+                                        let o = members[mi]
                                         let uid = o.long("id")
                                         Button(action: { select(uid, o.str("nickname"), o.str("headimgurl")) }) {
                                             VStack(spacing: 4) {
@@ -588,87 +589,8 @@ struct WithdrawPage: View {
                     .frame(maxWidth: .infinity).padding(.top, 40)
             } else if let d = d {
                 VStack(spacing: 12) {
-                    Text("ⓘ 提交申请会先冻结（扣除）余额，由管理员「" + d.str("bind_name") + "」打款到您的收款码；被拒绝会自动退回余额。")
-                        .font(.system(size: 13)).foregroundColor(Color(hex: 0x9A6B1F))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xFFE3BA)))
-                        .background(Color(hex: 0xFFF7EC))
-
-                    if d.int("bind_uid") <= 0 {
-                        Text("你在该群还没有分配「名下管理员」\n请联系群管理员在「成员分配」里分配后，再来提现")
-                            .font(.system(size: 14)).foregroundColor(Color(hex: 0xB0B0B0))
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity).padding(.vertical, 26)
-                    } else if let pend = d.dict("pending") {
-                        let t = pend.long("createtime") > 0
-                            ? DateFormatter.localizedString(from: Date(timeIntervalSince1970: TimeInterval(pend.long("createtime"))), dateStyle: .short, timeStyle: .short) : ""
-                        Text("您有一笔 " + pend.str("money") + " 元的提现申请正待管理员打款\n提交时间：" + t + "\n管理员处理前不能再提交新申请。")
-                            .font(.system(size: 13)).foregroundColor(Color(hex: 0x9A6B1F))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xFFE3BA)))
-                            .background(Color(hex: 0xFFF7EC))
-                    } else {
-                        // 卡1：可用余额 + 全部提现 + 金额
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 0) {
-                                Text("可用余额（元）").font(.system(size: 13)).foregroundColor(Color(hex: 0x8A8A8A))
-                                Spacer()
-                                Button(action: { if qm > 0 { money = fmt2(qm) } }) {
-                                    Text("全部提现").font(.system(size: 13)).foregroundColor(Color(hex: 0xE1251B))
-                                        .padding(.horizontal, 10).padding(.vertical, 4)
-                                        .background(Capsule().stroke(Color(hex: 0xF3C1BD)))
-                                }
-                            }
-                            Text("¥" + fmt2(qm)).font(.system(size: 24, weight: .bold)).foregroundColor(Color(hex: 0xE1251B))
-                            TextField("请输入提现金额", text: $money)
-                                .keyboardType(.decimalPad)
-                                .font(.system(size: 15)).frame(height: 42).padding(.horizontal, 10)
-                                .background(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: 0xDBDBDB)))
-                        }
-                        .padding(14).background(Color.white.cornerRadius(12))
-
-                        // 卡2：我的收款码
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("我的收款码").font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: 0x333333))
-                            HStack(alignment: .top, spacing: 12) {
-                                if let qrImg = qrImg {
-                                    ZStack(alignment: .topTrailing) {
-                                        Image(uiImage: qrImg).resizable().scaledToFill()
-                                            .frame(width: 96, height: 96).clipShape(RoundedRectangle(cornerRadius: 10))
-                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xEEEEEE)))
-                                        Button(action: { qrUrl = ""; qrImg = nil }) {
-                                            Text("×").font(.system(size: 13)).foregroundColor(.white)
-                                                .frame(width: 22, height: 22).background(Color.black.opacity(0.55))
-                                        }
-                                    }
-                                } else {
-                                    Button(action: { picking = true }) {
-                                        VStack(spacing: 4) {
-                                            Text("＋").font(.system(size: 26)).foregroundColor(Color(hex: 0xC9C9C9))
-                                            Text("上传收款码").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
-                                        }
-                                        .frame(width: 96, height: 96)
-                                        .background(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xD0D0D0)))
-                                    }.buttonStyle(.plain)
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("上传您的微信/支付宝收款二维码").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
-                                    Text("管理员按这张码给您打款").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
-                                    Text("jpg / png / gif，不超过 5MB").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
-                                }
-                                Spacer()
-                            }
-                        }
-                        .padding(14).background(Color.white.cornerRadius(12))
-
-                        Button(action: submit) {
-                            Text("提交申请").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
-                                .frame(maxWidth: .infinity).frame(height: 44)
-                                .background(Color(hex: 0xE1251B)).cornerRadius(23)
-                        }
-                    }
+                    withdrawNotify(d)
+                    withdrawMain(d)
                     Spacer()
                 }
                 .padding(16)
@@ -683,6 +605,104 @@ struct WithdrawPage: View {
         }
     }
 
+
+    private func withdrawNotify(_ d: JSONObject) -> some View {
+        Text("ⓘ 提交申请会先冻结（扣除）余额，由管理员「" + d.str("bind_name") + "」打款到您的收款码；被拒绝会自动退回余额。")
+            .font(.system(size: 13)).foregroundColor(Color(hex: 0x9A6B1F))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xFFE3BA)))
+            .background(Color(hex: 0xFFF7EC))
+    }
+
+    @ViewBuilder private func withdrawMain(_ d: JSONObject) -> some View {
+        if d.int("bind_uid") <= 0 {
+            Text("你在该群还没有分配「名下管理员」\n请联系群管理员在「成员分配」里分配后，再来提现")
+                .font(.system(size: 14)).foregroundColor(Color(hex: 0xB0B0B0))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity).padding(.vertical, 26)
+        } else if let pend = d.dict("pending") {
+            withdrawPending(pend)
+        } else {
+            withdrawCard1
+            withdrawCard2
+            submitButton
+        }
+    }
+
+    private func withdrawPending(_ pend: JSONObject) -> some View {
+        let t = pend.long("createtime") > 0
+            ? DateFormatter.localizedString(from: Date(timeIntervalSince1970: TimeInterval(pend.long("createtime"))), dateStyle: .short, timeStyle: .short) : ""
+        return Text("您有一笔 " + pend.str("money") + " 元的提现申请正待管理员打款\n提交时间：" + t + "\n管理员处理前不能再提交新申请。")
+            .font(.system(size: 13)).foregroundColor(Color(hex: 0x9A6B1F))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xFFE3BA)))
+            .background(Color(hex: 0xFFF7EC))
+    }
+
+    private var withdrawCard1: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 0) {
+                Text("可用余额（元）").font(.system(size: 13)).foregroundColor(Color(hex: 0x8A8A8A))
+                Spacer()
+                Button(action: { if qm > 0 { money = fmt2(qm) } }) {
+                    Text("全部提现").font(.system(size: 13)).foregroundColor(Color(hex: 0xE1251B))
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(Capsule().stroke(Color(hex: 0xF3C1BD)))
+                }
+            }
+            Text("¥" + fmt2(qm)).font(.system(size: 24, weight: .bold)).foregroundColor(Color(hex: 0xE1251B))
+            TextField("请输入提现金额", text: $money)
+                .keyboardType(.decimalPad)
+                .font(.system(size: 15)).frame(height: 42).padding(.horizontal, 10)
+                .background(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: 0xDBDBDB)))
+        }
+        .padding(14).background(Color.white.cornerRadius(12))
+    }
+
+    private var withdrawCard2: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("我的收款码").font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: 0x333333))
+            HStack(alignment: .top, spacing: 12) {
+                if let img = qrImg {
+                    ZStack(alignment: .topTrailing) {
+                        Image(uiImage: img).resizable().scaledToFill()
+                            .frame(width: 96, height: 96).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xEEEEEE)))
+                        Button(action: { qrUrl = ""; qrImg = nil }) {
+                            Text("×").font(.system(size: 13)).foregroundColor(.white)
+                                .frame(width: 22, height: 22).background(Color.black.opacity(0.55))
+                        }
+                    }
+                } else {
+                    Button(action: { picking = true }) {
+                        VStack(spacing: 4) {
+                            Text("＋").font(.system(size: 26)).foregroundColor(Color(hex: 0xC9C9C9))
+                            Text("上传收款码").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
+                        }
+                        .frame(width: 96, height: 96)
+                        .background(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: 0xD0D0D0)))
+                    }.buttonStyle(.plain)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("上传您的微信/支付宝收款二维码").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
+                    Text("管理员按这张码给您打款").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
+                    Text("jpg / png / gif，不超过 5MB").font(.system(size: 12)).foregroundColor(Color(hex: 0xB0B0B0))
+                }
+                Spacer()
+            }
+        }
+        .padding(14).background(Color.white.cornerRadius(12))
+    }
+
+    private var submitButton: some View {
+        Button(action: submit) {
+            Text("提交申请").font(.system(size: 16, weight: .bold)).foregroundColor(.white)
+                .frame(maxWidth: .infinity).frame(height: 44)
+                .background(Color(hex: 0xE1251B)).cornerRadius(23)
+        }
+    }
     private var qm: Double { Double(d?.str("qun_money") ?? "") ?? 0 }
 
     private func load() {
@@ -992,24 +1012,7 @@ struct ProfitStatSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 14).padding(.bottom, 6)
                     ForEach(rows.indices, id: \.self) { i in
-                        let o = rows[i]
-                        let fee = o.str("fee_desc")
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(o.str("from_name") + " → " + o.str("to_name") + "（转 ¥" + o.str("amount") + "）")
-                                .font(.system(size: 13)).foregroundColor(Color(hex: 0x262626)).lineLimit(1)
-                            Text(o.str("time") + " · " + (fee.isEmpty ? "群内分润" : fee))
-                                .font(.system(size: 11)).foregroundColor(Color(hex: 0xB2B2B2))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14).padding(.vertical, 9)
-                        .background(Color(hex: 0x1AAD19).opacity(Double(i) * 0))
-                        .overlay(
-                            HStack {
-                                Spacer()
-                                Text("+" + o.str("profit")).font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(Color(hex: 0x1AAD19))
-                            }.padding(.horizontal, 14)
-                        )
+                        profitRow(rows[i])
                         Rectangle().fill(Color(hex: 0xF0F0F0)).frame(height: 0.5)
                     }
                     if rows.isEmpty {
@@ -1019,6 +1022,22 @@ struct ProfitStatSheet: View {
                 }
             }
         }
+    private func profitRow(_ o: JSONObject) -> some View {
+        let fee = o.str("fee_desc")
+        return HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(o.str("from_name") + " → " + o.str("to_name") + "（转 ¥" + o.str("amount") + "）")
+                    .font(.system(size: 13)).foregroundColor(Color(hex: 0x262626)).lineLimit(1)
+                Text(o.str("time") + " · " + (fee.isEmpty ? "群内分润" : fee))
+                    .font(.system(size: 11)).foregroundColor(Color(hex: 0xB2B2B2))
+            }
+            Spacer()
+            Text("+" + o.str("profit")).font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color(hex: 0x1AAD19))
+        }
+        .padding(.horizontal, 14).padding(.vertical, 9)
+    }
+
         .onAppear {
             Api.shared.post("/Api/Native/qunprofit.html", form: ["qunid": String(qunId)]) { r in
                 DispatchQueue.main.async {
