@@ -30,6 +30,11 @@ struct ChatScreen: View {
     @State var showToolBox = false
     @State var voiceMode = false
     @State var loadedOnce = false
+    // 上翻历史 + 本地缓存秒开（H5 top-load-msg / _lc=1 同口径）
+    @State var histLoading = false
+    @State var histNoMore = false
+    @State var needTopRestore = false
+    @State var topAnchorMid: Int64 = 0
 
     // 成员面板（安卓：原位切换，替换消息区+底栏）
     @State var showPanel = false
@@ -142,6 +147,12 @@ struct ChatScreen: View {
                         .onTapGesture { firstLoad() }
                 } else {
                     LazyVStack(spacing: 0) {
+                        // 顶部哨兵：进入渲染窗口（约提前一屏）即触发历史加载 = H5 hist-prefetch「快到顶就拉」
+                        if !histNoMore && !msgs.isEmpty {
+                            Color.clear.frame(width: 1, height: 1)
+                                .id("histtop")
+                                .onAppear { loadMoreHistory() }
+                        }
                         ForEach(msgs.indices, id: \.self) { i in
                             let m = msgs[i]
                             let showTime = i == 0 || (m.time - msgs[i - 1].time) > 300
@@ -157,6 +168,13 @@ struct ChatScreen: View {
                 }
             }
             .onChange(of: msgs.count) { _ in
+                if needTopRestore {
+                    // 上翻插入历史后原位不动（锚回之前的第一条）
+                    needTopRestore = false
+                    if topAnchorMid > 0 { proxy.scrollTo(topAnchorMid, anchor: .top) }
+                    topAnchorMid = 0
+                    return
+                }
                 if let last = msgs.last {
                     withAnimation { proxy.scrollTo(last.mid, anchor: .bottom) }
                 }
@@ -608,9 +626,22 @@ struct ChatScreen: View {
     // MARK: - 数据
 
     private func bootstrap() {
+        loadCache()   // 【预加载】本地缓存秒开
         Api.shared.post("/Api/Native/me.html", form: [:]) { r in
             DispatchQueue.main.async {
-                if let d = r?.data { myUid = d.long("id") }
+                if let d = r?.data {
+                    let uid = d.long("id")
+                    let saved = Int64(UserDefaults.standard.integer(forKey: "wl_my_uid"))
+                    if uid > 0 {
+                        if saved > 0 && saved != uid {
+                            // 换账号：清掉聊天缓存，防串号
+                            let defs = UserDefaults.standard
+                            for k in defs.dictionaryRepresentation().keys where k.hasPrefix("imc_") { defs.removeObject(forKey: k) }
+                        }
+                        if uid != saved { UserDefaults.standard.set(Int(uid), forKey: "wl_my_uid") }
+                    }
+                    myUid = uid
+                }
             }
         }
         if isGroup {
@@ -629,7 +660,9 @@ struct ChatScreen: View {
     }
 
     private func firstLoad() {
-        Api.shared.post(endPath, form: baseParams()) { r in
+        var f = baseParams()
+        if !msgs.isEmpty { f["mid"] = String(lastMid) }   // 缓存恢复过 → 首拉走增量，只补缓存之后的新消息
+        Api.shared.post(endPath, form: f) { r in
             DispatchQueue.main.async { loadedOnce = true }
             if let r = r, r.status == 200 { apply(r); packetTouched() }
         }
@@ -673,6 +706,57 @@ struct ChatScreen: View {
                 let alllock = r.int("alllock")
                 let lock = r.int("lock")
                 lockText = alllock == 1 ? "群主已开启全体禁言" : (lock == 0 ? "您已被禁言" : "")
+            }
+            saveCache()   // 【预加载】缓存最近 50 条，下次进群秒开
+        }
+    }
+
+    // MARK: - 本地缓存秒开 + 上翻历史（H5 _lc=1 / top-load-msg 同口径）
+
+    private var cacheKey: String {
+        let uid = UserDefaults.standard.integer(forKey: "wl_my_uid")
+        return "imc_\(uid)_\(isGroup ? "g" : "f")\(chatId)"
+    }
+
+    private func loadCache() {
+        let s = UserDefaults.standard.string(forKey: cacheKey) ?? ""
+        guard let d = s.data(using: .utf8),
+              let arr = try? JSONDecoder().decode([Msg].self, from: d), !arr.isEmpty else { return }
+        msgs = arr
+        lastMid = arr.map { $0.mid }.max() ?? 0
+        loadedOnce = true
+    }
+
+    private func saveCache() {
+        guard UserDefaults.standard.integer(forKey: "wl_my_uid") > 0, !msgs.isEmpty else { return }
+        let tail = Array(msgs.suffix(50))
+        guard let d = try? JSONEncoder().encode(tail),
+              let s = String(data: d, encoding: .utf8) else { return }
+        UserDefaults.standard.set(s, forKey: cacheKey)
+    }
+
+    /// 上翻历史：getMag 带 mid+history=1，插入头部后锚回原第一条（原位不动）
+    private func loadMoreHistory() {
+        guard !histLoading, !histNoMore, let oldest = msgs.first?.mid else { return }
+        histLoading = true
+        var f = baseParams()
+        f["mid"] = String(oldest)
+        f["history"] = "1"
+        Api.shared.post(endPath, form: f) { r in
+            DispatchQueue.main.async {
+                histLoading = false
+                guard let r = r, r.status == 200 else { return }
+                var older: [Msg] = []
+                for o in r.arr {
+                    let m = parseMsg(o)
+                    if m.msgtype == "rc" { continue }              // rc 的原消息不在屏上，跳过
+                    if m.mid <= 0 || m.mid >= oldest { continue }
+                    older.append(m)
+                }
+                guard !older.isEmpty else { histNoMore = true; return }
+                needTopRestore = true
+                topAnchorMid = oldest
+                msgs.insert(contentsOf: older.reversed(), at: 0)   // 服务端新→旧 → 反转插头部 = 旧→新
             }
         }
     }

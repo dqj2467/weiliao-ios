@@ -122,8 +122,8 @@ struct JSONObject {
     func dict(_ k: String) -> JSONObject? { (raw[k] as? [String: Any]).flatMap { JSONObject(dict: $0) } }
 }
 
-/// 消息模型
-struct Msg: Identifiable {
+/// 消息模型（Codable：本地缓存秒开用，H5 _lc=1 同口径）
+struct Msg: Identifiable, Codable {
     var mid: Int64
     var senderId: Int64
     var nickname: String

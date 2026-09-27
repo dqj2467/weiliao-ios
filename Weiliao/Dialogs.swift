@@ -372,6 +372,7 @@ struct ZZConfirmView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity)   // ★撑满屏宽-60：否则按内容自适应成窄竖条（站长反馈"太搞了"）
             .background(Color.white.cornerRadius(10))
             .padding(.horizontal, 30)
         }
