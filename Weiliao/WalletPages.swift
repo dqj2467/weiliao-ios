@@ -40,6 +40,8 @@ struct WalletPageScaffold<Content: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(hex: 0xF2F2F2).ignoresSafeArea())
+        // 支付密码覆盖层：红包/转账等页自己弹出支付密码（v1.15，外层 cover 挡不住也够得着）
+        .overlay(PayPwdOverlay())
     }
 }
 
@@ -270,6 +272,9 @@ struct TransferPage: View {
                             .font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
                         if !isGroup && !friendFace.isEmpty {
                             Avatar(url: friendFace, fallback: friendName, size: 34)
+                        }
+                        if isGroup && !selFace.isEmpty {
+                            Avatar(url: selFace, fallback: selName, size: 34)
                         }
                     }
                     .padding(.horizontal, 14).frame(height: 52)
@@ -794,7 +799,8 @@ struct MoneyAdjustSheet: View {
         Api.shared.post("/Home/Group/moneyAdjust.html",
                         form: ["qunid": String(qunId), "uid": String(uid), "act": act, "money": String(m)]) { r in
             DispatchQueue.main.async {
-                PayDialogs.toast(r.flatMap { $0.str("info").isEmpty ? $0.msg : $0.str("info") } ?? "网络异常")
+                let tip = r.flatMap { $0.str("info").isEmpty ? $0.msg : $0.str("info") } ?? "网络异常"
+                PayDialogs.toast(tip.isEmpty ? (r?.status == 1 ? "调整成功" : "操作失败") : tip)
                 if r?.status == 1 { onDone() }
             }
         }
