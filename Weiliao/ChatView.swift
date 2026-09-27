@@ -951,7 +951,8 @@ struct TransferInfoSheet: View {
                 Text(d.str("scene") + " · " + d.str("status_text"))
                     .font(.system(size: 12)).foregroundColor(Color(hex: 0xFFA500))
                 if canSee {
-                    Text("该转账由 " + d.str("from_name") + " 发起，收款人为 " + d.str("to_name"))
+                    let who = "该转账由 " + d.str("from_name") + " 发起，收款人为 " + d.str("to_name")
+                    Text(who)
                         .font(.system(size: 13)).foregroundColor(Color(hex: 0x999999))
                 }
                 VStack(spacing: 0) {
