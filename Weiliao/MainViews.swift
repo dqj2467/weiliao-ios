@@ -434,11 +434,14 @@ struct Avatar: View {
             }
         }
         .frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 6))
-        .onAppear {
-            guard !url.isEmpty else { return }
-            Api.shared.fetchImage(url) { d in
-                if let d = d, let i = UIImage(data: d) { DispatchQueue.main.async { img = i } }
-            }
+        .onAppear { loadIfNeeded() }
+        .onChange(of: url) { _ in img = nil; loadIfNeeded() }   // 修复：meInfo 异步到达后 url 变化要重载（头像不显示的根因）
+    }
+
+    private func loadIfNeeded() {
+        guard !url.isEmpty, img == nil else { return }
+        Api.shared.fetchImage(url) { d in
+            if let d = d, let i = UIImage(data: d) { DispatchQueue.main.async { img = i } }
         }
     }
 }
