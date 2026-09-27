@@ -117,25 +117,52 @@ final class PayPwdSheet: ObservableObject {
 
 // MARK: - 六格数字输入（安卓 v5.35/37 同款：单隐藏输入框驱动 6 格，宽度按弹窗自适应）
 
+/// v1.16：透明数字输入框（UITextField 直取焦点，iOS14 无 @FocusState 也能自动弹键盘）
+struct HiddenNumberField: UIViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    class Coordinator: NSObject, UITextFieldDelegate {
+        var text: Binding<String>
+        init(text: Binding<String>) { self.text = text }
+        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let cur = (textField.text as NSString?)?.replacingCharacters(in: range, with: string) ?? string
+            let filtered = String(cur.filter { $0.isNumber }.prefix(6))
+            textField.text = filtered
+            text.wrappedValue = filtered
+            return false
+        }
+    }
+
+    func makeUIView(context: Context) -> UITextField {
+        let t = UITextField()
+        t.keyboardType = .numberPad
+        t.textColor = .clear
+        t.tintColor = .clear
+        t.backgroundColor = .clear
+        t.delegate = context.coordinator
+        DispatchQueue.main.async { t.becomeFirstResponder() }
+        return t
+    }
+
+    func updateUIView(_ t: UITextField, context: Context) {
+        if t.text != context.coordinator.text.wrappedValue { t.text = context.coordinator.text.wrappedValue }
+    }
+}
+
 struct PayPwdCells: View {
     @Binding var text: String
     var cellH: CGFloat = 52
-    @State var focused = true
 
     var body: some View {
         GeometryReader { g in
             let w = g.size.width
             let cw = (w - 5 * 8) / 6
             ZStack {
-                // 隐藏输入框（透明文字），覆盖整个区域
-                TextField("", text: $text)
-                    .keyboardType(.numberPad)
-                    .foregroundColor(.clear)
-                    .accentColor(.clear)
-                    .onChange(of: text) { v in
-                        let filtered = String(v.filter { $0.isNumber }.prefix(6))
-                        if filtered != text { text = filtered }
-                    }
+                // 隐藏输入框（v1.16：UITextField 自动获焦，修复 SwiftUI TextField 不获焦键盘不弹、且被六格白卡挡住点不到）
+                HiddenNumberField(text: $text)
+                    .frame(width: w, height: cellH)
                 HStack(spacing: 8) {
                     ForEach(0..<6, id: \.self) { i in
                         ZStack {
@@ -165,7 +192,7 @@ struct PayPwdAskView: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.35).ignoresSafeArea()
-                .onTapGesture { mode.wrappedValue.dismiss() }
+                .onTapGesture { PayPwdSheet.shared.showAsk = false }
             VStack(spacing: 0) {
                 Text("请输入支付密码").font(.system(size: 16, weight: .bold)).foregroundColor(Color(hex: 0x111111))
                 Text(err.isEmpty ? " " : err).font(.system(size: 12)).foregroundColor(Color(hex: 0xFA5151)).padding(.top, 8)
@@ -187,7 +214,7 @@ struct PayPwdAskView: View {
 
     private func confirm() {
         guard pwd.count == 6 else { err = "请输入 6 位支付密码"; return }
-        mode.wrappedValue.dismiss()
+        PayPwdSheet.shared.showAsk = false  // v1.16：overlay 场景 presentationMode.dismiss 无效
         let cb = PayPwdSheet.shared.onPwd
         PayPwdSheet.shared.onPwd = nil
         cb?(pwd)
@@ -206,7 +233,7 @@ struct PayPwdSetView: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.35).ignoresSafeArea()
-                .onTapGesture { mode.wrappedValue.dismiss() }
+                .onTapGesture { PayPwdSheet.shared.showSet = false }
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
                     Text("设置支付密码").font(.system(size: 16, weight: .bold)).foregroundColor(Color(hex: 0x111111))
@@ -245,7 +272,7 @@ struct PayPwdSetView: View {
                         form: ["oldpwd": old, "pwd": p1, "pwd2": p2]) { r in
             DispatchQueue.main.async {
                 if r?.status == 1 {
-                    mode.wrappedValue.dismiss()
+                    PayPwdSheet.shared.showSet = false  // v1.16：overlay 场景 presentationMode.dismiss 无效
                     PayDialogs.toast("设置成功")
                 } else {
                     msg = r.flatMap { $0.str("info").isEmpty ? $0.msg : $0.str("info") } ?? "网络异常"
