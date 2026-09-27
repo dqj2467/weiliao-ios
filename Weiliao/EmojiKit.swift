@@ -129,18 +129,22 @@ enum Emo {
 
     // MARK: - 表情面板列表（Bundle 内全部 <hex>.png，按码点排序，与安卓同图集）
 
-    static let panelEmojis: [String] = {
-        guard let urls = Bundle.main.urls(forResourcesWithExtension: "png", subdirectory: nil) else { return [] }
-        var hexes: [Int] = []
-        for u in urls {
-            let name = u.deletingPathExtension().lastPathComponent
-            if name.range(of: "^[0-9a-f]{4,6}$", options: .regularExpression) != nil,
-               let v = Int(name, radix: 16), isEmojiCp(UInt32(v)) {
-                hexes.append(v)
-            }
-        }
-        return hexes.sorted().map { String($0, radix: 16) }
-    }()
+    /// 表情面板固定码点表（与安卓图集同源；v1.14 起不再扫描 Bundle 散 png）
+    static let panelEmojis: [String] = [
+        "1f308", "1f31e", "1f339", "1f340", "1f349", "1f34e", "1f37a", "1f37b", "1f381",
+        "1f382", "1f389", "1f38a", "1f44a", "1f44b", "1f44c", "1f44d", "1f44e", "1f44f",
+        "1f48a", "1f48e", "1f4a3", "1f4a4", "1f4a8", "1f4aa", "1f4af", "1f4b0", "1f525",
+        "1f590", "1f596", "1f600", "1f601", "1f602", "1f603", "1f604", "1f605", "1f606",
+        "1f607", "1f609", "1f60a", "1f60b", "1f60c", "1f60d", "1f60e", "1f60f", "1f610",
+        "1f611", "1f612", "1f613", "1f614", "1f615", "1f616", "1f617", "1f618", "1f619",
+        "1f61a", "1f61b", "1f61c", "1f61d", "1f61e", "1f61f", "1f620", "1f621", "1f622",
+        "1f623", "1f624", "1f625", "1f626", "1f627", "1f628", "1f629", "1f62a", "1f62b",
+        "1f62c", "1f62d", "1f62e", "1f62f", "1f630", "1f631", "1f632", "1f633", "1f634",
+        "1f635", "1f636", "1f637", "1f641", "1f642", "1f643", "1f644", "1f64c", "1f64f",
+        "1f910", "1f911", "1f912", "1f914", "1f915", "1f917", "1f918", "1f919", "1f91b",
+        "1f91c", "1f91d", "1f91e", "1f91f", "1f920", "1f922", "1f923", "1f924", "1f925",
+        "1f92b", "1f92d", "1f92e", "1f92f", "1f942", "1f973", "1f97a", "1f9d0",
+    ]
 
     /// 码点 → 面板可插入的字符
     static func char(_ hex: String) -> String? {
