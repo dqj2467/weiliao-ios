@@ -521,10 +521,10 @@ struct ChatScreen: View {
                 VoiceBubble(text: m.text, mine: m.mine)
                     .contextMenu { Button(action: onRecall) { Text("撤回") } }
             } else if m.msgtype == "hb" {
-                MoneyCard(text: m.text, sub: m.nickname, done: m.hbDone == 1,
+                MoneyCard(text: Emo.decode(m.text), sub: m.nickname, done: m.hbDone == 1,
                           title: "微聊红包", action: onTapHb)
             } else if m.msgtype == "zz" {
-                MoneyCard(text: "¥" + m.zzAmount, sub: m.text.isEmpty ? "转账" : m.text,
+                MoneyCard(text: "¥" + m.zzAmount, sub: m.text.isEmpty ? "转账" : Emo.decode(m.text),
                           done: false, title: "微聊转账", action: onTapZz)
             } else {
                 Text(Emo.decode(m.text))
