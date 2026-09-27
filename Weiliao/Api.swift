@@ -38,6 +38,7 @@ final class Api {
         req.timeoutInterval = 30
         let boundary = "wl" + UUID().uuidString
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
         var body = Data()
         body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\nContent-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!)
         body.append(fileData)
@@ -81,7 +82,7 @@ struct JSONObject {
         raw = o
     }
     init?(dict: [String: Any]) { raw = dict }
-    var status: Int { raw["status"] as? Int ?? 0 }
+    var status: Int { int("status") }
     var msg: String { raw["msg"] as? String ?? raw["info"] as? String ?? "" }
     var data: JSONObject? { (raw["data"] as? [String: Any]).flatMap { JSONObject(dict: $0) } }
     var list: [JSONObject] {
@@ -97,8 +98,21 @@ struct JSONObject {
         guard let a = raw["list"] as? [[String: Any]] else { return [] }
         return a.compactMap { JSONObject(dict: $0) }
     }
-    func int(_ k: String) -> Int { raw[k] as? Int ?? Int(raw[k] as? Double ?? 0) }
-    func long(_ k: String) -> Int64 { raw[k] as? Int64 ?? Int64(raw[k] as? Int ?? 0) }
+    /// ★v1.14 全类型兜底：PHP/PDO 返回的 JSON 数字列全是字符串（mid:"123"），
+    /// 旧实现 as? Int 全部变 0 → 消息不入列/uid=0/时间=0，炸掉 iOS 端一切显示。
+    private func num(_ k: String) -> Double {
+        switch raw[k] {
+        case let n as NSNumber: return n.doubleValue
+        case let d as Double: return d
+        case let i as Int: return Double(i)
+        case let i64 as Int64: return Double(i64)
+        case let b as Bool: return b ? 1 : 0
+        case let s as String: return Double(s) ?? 0
+        default: return 0
+        }
+    }
+    func int(_ k: String) -> Int { Int(num(k)) }
+    func long(_ k: String) -> Int64 { Int64(num(k)) }
     func str(_ k: String) -> String { raw[k] as? String ?? "" }
     func dict(_ k: String) -> JSONObject? { (raw[k] as? [String: Any]).flatMap { JSONObject(dict: $0) } }
 }
