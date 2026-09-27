@@ -126,7 +126,7 @@ struct ChatScreen: View {
         }
         .background(Color(hex: 0xF5F6F7))
         .background(EmptyView().sheet(item: Binding(get: { viewer.map { SheetItem(u: $0) } },
-                                                    set: { viewer = $0?.u })) {
+                                                    set: { viewer = $0?.u })) { _ in
             ImageViewer(url: viewer ?? "")
         })
         .background(EmptyView().sheet(isPresented: $showImagePicker) {
