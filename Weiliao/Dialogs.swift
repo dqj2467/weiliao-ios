@@ -117,36 +117,49 @@ final class PayPwdSheet: ObservableObject {
 
 // MARK: - 六格数字输入（安卓 v5.35/37 同款：单隐藏输入框驱动 6 格，宽度按弹窗自适应）
 
-/// v1.16：透明数字输入框（UITextField 直取焦点，iOS14 无 @FocusState 也能自动弹键盘）
+/// v1.18：透明数字输入框。
+/// v1.17 问题：在 shouldChangeCharactersIn 里手动改 textField.text 并 return false，
+/// 连续快输时字段与系统输入队列失步（丢字/断输），且失焦后六格白卡挡着点不回输入框。
+/// v1.18 三重加固：① editingChanged 同步（不在 shouldChange 里重写文本）
+/// ② textFieldShouldEndEditing=false 弹窗存续期键盘不收 ③ 点六格任意位置自动回焦。
 struct HiddenNumberField: UIViewRepresentable {
     @Binding var text: String
+    var ref: FieldRef?
+
+    final class FieldRef { weak var field: UITextField? }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
     class Coordinator: NSObject, UITextFieldDelegate {
         var text: Binding<String>
         init(text: Binding<String>) { self.text = text }
-        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-            let cur = (textField.text as NSString?)?.replacingCharacters(in: range, with: string) ?? string
-            let filtered = String(cur.filter { $0.isNumber }.prefix(6))
-            textField.text = filtered
+        @objc func editingChanged(_ t: UITextField) {
+            let filtered = String((t.text ?? "").filter { $0.isNumber }.prefix(6))
+            if t.text != filtered { t.text = filtered }
             text.wrappedValue = filtered
-            return false
+        }
+        func textFieldShouldEndEditing(_ textField: UITextField) -> Bool {
+            false   // 弹窗打开期间键盘不收，保证能连续输入
         }
     }
 
     func makeUIView(context: Context) -> UITextField {
         let t = UITextField()
         t.keyboardType = .numberPad
+        t.autocorrectionType = .no
+        t.spellCheckingType = .no
         t.textColor = .clear
         t.tintColor = .clear
         t.backgroundColor = .clear
         t.delegate = context.coordinator
+        t.addTarget(context.coordinator, action: #selector(Coordinator.editingChanged(_:)), for: .editingChanged)
+        ref?.field = t
         DispatchQueue.main.async { t.becomeFirstResponder() }
         return t
     }
 
     func updateUIView(_ t: UITextField, context: Context) {
+        ref?.field = t
         if t.text != context.coordinator.text.wrappedValue { t.text = context.coordinator.text.wrappedValue }
     }
 }
@@ -154,14 +167,15 @@ struct HiddenNumberField: UIViewRepresentable {
 struct PayPwdCells: View {
     @Binding var text: String
     var cellH: CGFloat = 52
+    @State private var fieldRef = HiddenNumberField.FieldRef()
 
     var body: some View {
         GeometryReader { g in
             let w = g.size.width
             let cw = (w - 5 * 8) / 6
             ZStack {
-                // 隐藏输入框（v1.16：UITextField 自动获焦，修复 SwiftUI TextField 不获焦键盘不弹、且被六格白卡挡住点不到）
-                HiddenNumberField(text: $text)
+                // 隐藏输入框（v1.18：editingChanged 同步 + 不许失焦 + 点格子回焦）
+                HiddenNumberField(text: $text, ref: fieldRef)
                     .frame(width: w, height: cellH)
                 HStack(spacing: 8) {
                     ForEach(0..<6, id: \.self) { i in
@@ -177,6 +191,8 @@ struct PayPwdCells: View {
                     }
                 }
             }
+            .contentShape(Rectangle())
+            .onTapGesture { fieldRef.field?.becomeFirstResponder() }
         }
         .frame(height: cellH)
     }
