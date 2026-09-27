@@ -124,7 +124,7 @@ struct WebViewHost: UIViewRepresentable {
         // 否则首个请求不带登录态 → H5 直接跳登录页（v1.13 修复：点红包/发现页打开即登录）
         let cookies = HTTPCookieStorage.shared.cookies ?? []
         let store = cfg.websiteDataStore.httpCookieStore
-        let loadReq = url.flatMap { URL(string: $0) }.map { URLRequest(url: $0) }
+        let loadReq = URL(string: url).map { URLRequest(url: $0) }
         if cookies.isEmpty {
             if let req = loadReq { wv.load(req) }
         } else {
