@@ -34,40 +34,28 @@ enum Emo {
     // MARK: - 解码：&#x hex; / &# dec; → 字符
 
     static func decode(_ s: String) -> String {
-        guard s.contains("&") else { return s }
-        var out = String(); out.reserveCapacity(s.count)
-        var i = s.startIndex
-        while i < s.endIndex {
-            let c = s[i]
-            if c == "&", let sc = s.index(i, offsetBy: 2, limitedBy: s.endIndex), sc < s.endIndex {
-                let next = s[s.index(after: i)]
-                var value: Int? = nil
-                var j = s.index(after: i)
-                if next == "x" || next == "X" {
-                    j = s.index(after: j)
-                    var hex = 0
-                    while j < s.endIndex, let d = s[j].hexDigitValue {
-                        hex = hex * 16 + d
-                        j = s.index(after: j)
-                    }
-                    if j < s.endIndex && s[j] == ";" && hex > 0 { value = hex }
-                } else if next == "#" {
-                    var dec = 0
-                    while j < s.endIndex, let d = s[j].wholeNumberValue, d >= 0, d <= 9 {
-                        dec = dec * 10 + d
-                        j = s.index(after: j)
-                    }
-                    if j < s.endIndex && s[j] == ";" && dec > 0 { value = dec }
-                }
-                if let v = value, let us = Unicode.Scalar(v) {
-                    out.unicodeScalars.append(us)
-                    i = s.index(after: j)
-                    continue
-                }
+        // v1.16 重写：正则一次替换（旧实现把 next 判成 s[i+1]，对 "&#x..." 恒为 '#'，hex 分支永远进不去 → 实体原样显示成乱码）
+        // 兼容 &#x1f600; / &#128512; / &amp; 双重转义
+        var src = s.replacingOccurrences(of: "&amp;", with: "&")
+        guard src.contains("&#") else { return src }
+        guard let re = try? NSRegularExpression(pattern: "&#(x([0-9a-fA-F]+)|([0-9]+));") else { return src }
+        let ns = src as NSString
+        var out = String()
+        var last = 0
+        re.enumerateMatches(in: src, range: NSRange(location: 0, length: ns.length)) { m, _, _ in
+            guard let m = m else { return }
+            var v = -1
+            if m.range(at: 2).location != NSNotFound {
+                v = Int(ns.substring(with: m.range(at: 2)), radix: 16) ?? -1
+            } else if m.range(at: 3).location != NSNotFound {
+                v = Int(ns.substring(with: m.range(at: 3))) ?? -1
             }
-            out.append(c)
-            i = s.index(after: i)
+            guard v > 0, let us = Unicode.Scalar(v) else { return }
+            out += ns.substring(with: NSRange(location: last, length: m.range.location - last))
+            out.unicodeScalars.append(us)
+            last = m.range.location + m.range.length
         }
+        if last < ns.length { out += ns.substring(from: last) }
         return out
     }
 
