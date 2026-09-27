@@ -31,11 +31,23 @@ struct RootContainer: View {
 
     var body: some View {
         RootView()
+            // v1.15：只保留这一个 fullScreenCover（多 cover 挂同一视图会互相顶掉/排队不弹）
             .fullScreenCover(item: $router.item) { item in
                 WebViewScreen(url: item.url, title: item.title)
             }
-            .fullScreenCover(isPresented: $pwd.showSet) { PayPwdSetView() }
-            .fullScreenCover(isPresented: $pwd.showAsk) { PayPwdAskView() }
+            // 支付密码弹层改为覆盖层（overlay），任何页面之上都能弹出
+            .overlay(PayPwdOverlay())
+    }
+}
+
+/// 支付密码覆盖层： observing 全局单例，showAsk/showSet 置真即显示
+struct PayPwdOverlay: View {
+    @ObservedObject var pwd = PayPwdSheet.shared
+    var body: some View {
+        ZStack {
+            if pwd.showAsk { PayPwdAskView() }
+            if pwd.showSet { PayPwdSetView() }
+        }
     }
 }
 
