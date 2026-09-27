@@ -117,22 +117,24 @@ struct MainScreen: View {
     private var mePage: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
-                // ① 资料行
-                HStack(spacing: 0) {
-                    Avatar(url: meInfo?.str("headimgurl") ?? "", fallback: meInfo?.str("nickname") ?? "我", size: 60)
-                        .padding(.trailing, 14)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(meInfo?.str("nickname") ?? "…")
-                            .font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
-                        Text("微聊号：" + weihaoText)
-                            .font(.system(size: 12)).foregroundColor(Color(hex: 0xAAAAAA))
+                // ① 资料行（H5 口径：点击进个人信息页 gerenxinxi.html）
+                Button(action: { WebFallback.open(Api.host + "/Home/Member/gerenxinxi.html", title: "个人信息") }) {
+                    HStack(spacing: 0) {
+                        Avatar(url: meInfo?.str("headimgurl") ?? "", fallback: meInfo?.str("nickname") ?? "我", size: 60)
+                            .padding(.trailing, 14)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(meInfo?.str("nickname") ?? "…")
+                                .font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
+                            Text("微聊号：" + weihaoText)
+                                .font(.system(size: 12)).foregroundColor(Color(hex: 0xAAAAAA))
+                        }
+                        Spacer()
+                        Image("ucqrcode").resizable().scaledToFit().frame(width: 25, height: 25).padding(.trailing, 8)
+                        Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
                     }
-                    Spacer()
-                    Image("ucqrcode").resizable().scaledToFit().frame(width: 25, height: 25).padding(.trailing, 8)
-                    Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
-                }
-                .padding(.horizontal, 15)
-                .frame(height: 76).background(Color.white)
+                    .padding(.horizontal, 15)
+                    .frame(height: 76).background(Color.white)
+                }.buttonStyle(.plain)
 
                 // ② 钱包
                 meRow(icon: "uc1", label: "钱包", right: {
@@ -155,8 +157,10 @@ struct MainScreen: View {
                     PayPwdSheet.shared.showSet = true
                 }
 
-                // ⑥ 设置（安卓同款：点击无动作）
-                meRow(icon: "uc4", label: "设置", right: { EmptyView() }) { }
+                // ⑥ 设置（H5 口径：进个人信息页）
+                meRow(icon: "uc4", label: "设置", right: { EmptyView() }) {
+                    WebFallback.open(Api.host + "/Home/Member/gerenxinxi.html", title: "个人信息")
+                }
 
                 // ⑦ 退出登录
                 Button(action: {
