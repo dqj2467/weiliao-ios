@@ -140,10 +140,10 @@ struct LoginView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    // logo（网页版 Public/Home/member/imgs/log.png）
+                    // logo（安卓 v5.38 同款：白色满宽区，高 135，图 750x270 自带留白）
                     Image("Logo").resizable().scaledToFit()
-                        .frame(height: 120)
-                        .padding(.horizontal, 15).padding(.top, 10).padding(.bottom, 4)
+                        .frame(maxWidth: .infinity).frame(height: 135)
+                        .background(Color.white)
 
                     // 页签：用户登录 | 用户注册（白底，激活绿下划线）
                     HStack(spacing: 0) {
@@ -158,7 +158,7 @@ struct LoginView: View {
                     VStack(spacing: 0) {
                         HStack(spacing: 0) {
                             Image("ico_phone").resizable().scaledToFit()
-                                .frame(width: 18, height: 22).padding(.leading, 15)
+                                .frame(width: 16, height: 20).padding(.leading, 15)
                             TextField("请输入账号/手机号", text: $phone)
                                 .keyboardType(.default)
                                 .font(.system(size: 16))
@@ -167,7 +167,7 @@ struct LoginView: View {
                         Rectangle().fill(hairline).frame(height: 0.5)
                         HStack(spacing: 0) {
                             Image("ico_lock").resizable().scaledToFit()
-                                .frame(width: 18, height: 22).padding(.leading, 15)
+                                .frame(width: 16, height: 20).padding(.leading, 15)
                             Group {
                                 if pwdVisible {
                                     TextField("请输入密码", text: $pwd)
