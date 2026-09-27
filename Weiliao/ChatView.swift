@@ -78,8 +78,8 @@ struct ChatScreen: View {
     }
 
     // MARK: - 单弹层路由辅助
-    private func openCover(_ v: @escaping () -> AnyView) {
-        cover = ChatCover(build: v)
+    private func openCover(_ v: AnyView) {
+        cover = ChatCover(build: { v })
     }
     private func openRedPacket() { openCover(AnyView(RedPacketPage(isGroup: isGroup, chatId: chatId, onSent: { packetTouched() }))) }
     private func openTransfer() { openCover(AnyView(TransferPage(isGroup: isGroup, chatId: chatId, onSent: { poll() }))) }
