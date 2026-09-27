@@ -92,6 +92,11 @@ struct JSONObject {
         guard let a = raw["data"] as? [[String: Any]] else { return [] }
         return a.compactMap { JSONObject(dict: $0) }
     }
+    /// data 里的 list 数组（NativeController 口径：data:{list:[...]}）
+    var listItems: [JSONObject] {
+        guard let a = raw["list"] as? [[String: Any]] else { return [] }
+        return a.compactMap { JSONObject(dict: $0) }
+    }
     func int(_ k: String) -> Int { raw[k] as? Int ?? Int(raw[k] as? Double ?? 0) }
     func long(_ k: String) -> Int64 { raw[k] as? Int64 ?? Int64(raw[k] as? Int ?? 0) }
     func str(_ k: String) -> String { raw[k] as? String ?? "" }
