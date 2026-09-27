@@ -21,12 +21,7 @@ struct WebItem: Identifiable {
     var id: String { url }
 }
 
-final class PayPwdSheet: ObservableObject {
-    static let shared = PayPwdSheet()
-    @Published var showSet = false
-    @Published var showAsk = false
-    var onPwd: ((String) -> Void)?
-}
+// PayPwdSheet 已迁移至 Dialogs.swift
 
 // MARK: - 根容器：挂载全局弹层
 
