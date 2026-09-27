@@ -58,14 +58,10 @@ struct MainScreen: View {
         .background(Color.white)
         .onAppear { refreshAll() }
         .onReceive(timer) { _ in if tab == 0 { loadConvs(false) } }
-        .fullScreenCover(item: $openChat) { c in
+        .background(EmptyView().sheet(item: $openChat) { c in
             ChatScreen(isGroup: c.isGroup, chatId: c.id, title: c.title,
                        onClosed: { loadConvs(true) })
-        }
-        .alert("确定要退出登录吗？", isPresented: $showLogoutConfirm) {
-            Button("退出", role: .destructive) { logout() }
-            Button("取消", role: .cancel) { }
-        }
+        })
     }
 
     private var headerTitle: String {
@@ -139,27 +135,33 @@ struct MainScreen: View {
                 .frame(height: 76).background(Color.white)
 
                 // ② 钱包
-                meRow(icon: "uc1", label: "钱包", right: Text("余额：" + (meInfo?.str("money") ?? "--") + "元")
-                        .font(.system(size: 13)).foregroundColor(Color(hex: 0x808080))) {
+                meRow(icon: "uc1", label: "钱包", right: {
+                    Text("余额：" + (meInfo?.str("money") ?? "--") + "元")
+                        .font(.system(size: 13)).foregroundColor(Color(hex: 0x808080))
+                }) {
                     WebFallback.open(Api.host + "/Home/Member/redpacklog.html", title: "钱包")
                 }
 
                 // ③ 明细
-                meRow(icon: "uc2", label: "明细", right: EmptyView()) {
+                meRow(icon: "uc2", label: "明细", right: { EmptyView() }) {
                     WebFallback.open(Api.host + "/Home/Member/redpacklog.html", title: "余额明细")
                 }
 
                 // ⑤ 支付密码
-                meRow(icon: "uc4", label: "支付密码", right: Text(paypwdText)
-                        .font(.system(size: 13)).foregroundColor(paypwdSet ? Color(hex: 0x808080) : Color(hex: 0xE64340))) {
+                meRow(icon: "uc4", label: "支付密码", right: {
+                    Text(paypwdText)
+                        .font(.system(size: 13)).foregroundColor(paypwdSet ? Color(hex: 0x808080) : Color(hex: 0xE64340))
+                }) {
                     PayPwdSheet.shared.showSet = true
                 }
 
                 // ⑥ 设置（安卓同款：点击无动作）
-                meRow(icon: "uc4", label: "设置", right: EmptyView()) { }
+                meRow(icon: "uc4", label: "设置", right: { EmptyView() }) { }
 
                 // ⑦ 退出登录
-                Button(action: { showLogoutConfirm = true }) {
+                Button(action: {
+                    PayDialogs.confirm("确定要退出登录吗？") { logout() }
+                }) {
                     Text("退出登录").font(.system(size: 15)).foregroundColor(Color(hex: 0xE64340))
                         .frame(maxWidth: .infinity).frame(height: 50)
                         .background(Color.white)
@@ -309,9 +311,6 @@ struct MainScreen: View {
 
     private func logout() {
         HTTPCookieStorage.shared.cookies?.forEach { HTTPCookieStorage.shared.deleteCookie($0) }
-        URLSession.shared.configuration.httpCookieStore?.allCookies { cs in
-            // WKWebView 侧会话一并清理由下次启动的默认存储自然过期
-        }
         loggedIn = false
     }
 }
