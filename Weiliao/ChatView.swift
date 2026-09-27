@@ -208,6 +208,11 @@ struct ChatScreen: View {
         }.background(Color(hex: 0xF7F7F7))
     }
 
+    /// 收起键盘（点表情/工具格时先收，避免面板被键盘盖住）
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
     private var inputRow: some View {
         HStack(spacing: 0) {
             // 语音/键盘切换
@@ -243,19 +248,20 @@ struct ChatScreen: View {
                             }
                     )
             } else {
-                // 输入框（下划线，同 H5 #textarea）
+                // 输入框（下划线，同 H5 #textarea；minHeight 兜底防被压缩成 0 高）
                 VStack(spacing: 0) {
                     TextField("说点什么…", text: $input, onCommit: { sendText() })
                         .font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
+                        .frame(minHeight: 30)
                         .padding(.top, 6)
                     Rectangle().fill(Color(hex: 0xDBDBDB)).frame(height: 1)
                 }.padding(.horizontal, 4)
 
-                Button(action: { showToolBox = false; showEmojiPanel.toggle() }) {
+                Button(action: { dismissKeyboard(); showToolBox = false; showEmojiPanel.toggle() }) {
                     Image("h5ico_emoji").resizable().scaledToFit()
                         .frame(width: 30, height: 30).padding(.horizontal, 8)
                 }
-                Button(action: { showEmojiPanel = false; showToolBox.toggle() }) {
+                Button(action: { dismissKeyboard(); showEmojiPanel = false; showToolBox.toggle() }) {
                     Image("h5ico_sendimg").resizable().scaledToFit()
                         .frame(width: 30, height: 30).padding(.trailing, 8)
                 }
@@ -697,8 +703,8 @@ struct ChatScreen: View {
                 msgs.append(m)
             }
             if isGroup {
-                let alllock = r.raw["alllock"] as? Int ?? 0
-                let lock = r.raw["lock"] as? Int ?? 1
+                let alllock = r.int("alllock")
+                let lock = r.int("lock")
                 lockText = alllock == 1 ? "群主已开启全体禁言" : (lock == 0 ? "您已被禁言" : "")
             }
         }
