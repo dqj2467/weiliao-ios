@@ -273,8 +273,9 @@ struct TransferPage: View {
                         if !isGroup && !friendFace.isEmpty {
                             Avatar(url: friendFace, fallback: friendName, size: 34)
                         }
-                        if isGroup && !selFace.isEmpty {
-                            Avatar(url: selFace, fallback: selName, size: 34)
+                        if isGroup {
+                            // v1.16：头像常显（未选择时兜底灰头像），选择后显示该群友头像
+                            Avatar(url: selFace, fallback: selName.isEmpty ? "群" : selName, size: 34)
                         }
                     }
                     .padding(.horizontal, 14).frame(height: 52)
