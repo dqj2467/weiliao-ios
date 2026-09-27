@@ -36,7 +36,7 @@ struct RootContainer: View {
 
     var body: some View {
         RootView()
-            .sheet(item: $router.item) { item in
+            .fullScreenCover(item: $router.item) { item in
                 WebViewScreen(url: item.url, title: item.title)
             }
             .sheet(isPresented: $pwd.showSet) { PayPwdSetView() }
