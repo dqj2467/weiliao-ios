@@ -26,8 +26,6 @@ struct ChatScreen: View {
     @State var lockText = ""
     @State var input = ""
     @State var lastMid: Int64 = 0
-    @State var viewer: String? = nil
-    @State var showImagePicker = false
     @State var showEmojiPanel = false
     @State var showToolBox = false
     @State var voiceMode = false
@@ -41,19 +39,8 @@ struct ChatScreen: View {
     @State var delMode = false
     @State var delSel: Set<Int64> = []
 
-    // 原生页/弹层
-    @State var showRedPacket = false
-    @State var showTransfer = false
-    @State var showRecharge = false
-    @State var showWithdraw = false
-    @State var showMoneyLog = false
-    @State var showProfit = false
-    @State var showNotice = false
-    @State var showAddMember = false
-    @State var showNick = false
-    @State var adjustTarget: PanelMember? = nil
-    @State var muteTarget: PanelMember? = nil
-    @State var transferInfo: JSONObject? = nil
+    // 原生页/弹层（v1.15：全部收敛为单弹层路由，修复 SwiftUI 同视图多 fullScreenCover 互相顶掉/排队不弹的冲突）
+    @State var cover: ChatCover? = nil
 
     // 语音
     @StateObject private var recorderBox = RecorderBox()
@@ -85,50 +72,30 @@ struct ChatScreen: View {
             }
         }
         .background(Color(hex: 0xF5F6F7).ignoresSafeArea())
-        .fullScreenCover(isPresented: $showRedPacket) {
-            RedPacketPage(isGroup: isGroup, chatId: chatId, onSent: { packetTouched() })
-        }
-        .fullScreenCover(isPresented: $showTransfer) {
-            TransferPage(isGroup: isGroup, chatId: chatId, onSent: { poll() })
-        }
-        .fullScreenCover(isPresented: $showRecharge) { RechargePage(qunId: chatId) }
-        .fullScreenCover(isPresented: $showWithdraw) { WithdrawPage(qunId: chatId) }
-        .fullScreenCover(isPresented: $showMoneyLog) { MoneyLogSheet(qunId: chatId) }
-        .fullScreenCover(isPresented: $showProfit) { ProfitStatSheet(qunId: chatId) }
-        .fullScreenCover(isPresented: $showNotice) { NoticeSheet(notice: qunNotice) }
-        .fullScreenCover(isPresented: $showAddMember) { MemberAddSheet(qunId: chatId, onDone: { loadPanel() }) }
-        .fullScreenCover(isPresented: $showNick) { NickSheet(qunId: chatId, current: myNick, onDone: { loadPanel() }) }
-        .fullScreenCover(item: $adjustTarget) { t in
-            MoneyAdjustSheet(qunId: chatId, uid: t.id, nick: t.nickname, curMoney: t.money, onDone: { loadPanel() })
-        }
-        .fullScreenCover(item: $muteTarget) { t in
-            SheetMenuView(title: "禁言「" + t.nickname + "」",
-                          items: ["禁言 10 分钟", "禁言 1 小时", "禁言 24 小时", "解除禁言"]) { i in
+        .fullScreenCover(item: $cover) { c in c.build() }
+        .onAppear { bootstrap() }
+        .onReceive(timer) { _ in poll() }
+    }
+
+    // MARK: - 单弹层路由辅助
+    private func openCover(_ v: @escaping () -> AnyView) {
+        cover = ChatCover(build: v)
+    }
+    private func openRedPacket() { openCover(AnyView(RedPacketPage(isGroup: isGroup, chatId: chatId, onSent: { packetTouched() }))) }
+    private func openTransfer() { openCover(AnyView(TransferPage(isGroup: isGroup, chatId: chatId, onSent: { poll() }))) }
+    private func openWeb(_ u: String, _ t: String) { openCover(AnyView(WebViewScreen(url: u, title: t))) }
+    private func openMute(_ uid: Int64, _ nick: String) {
+        openCover(AnyView(SheetMenuView(title: "禁言「" + nick + "」",
+            items: ["禁言 10 分钟", "禁言 1 小时", "禁言 24 小时", "解除禁言"]) { i in
                 let durs: [Int64] = [600, 3600, 86400, 0]
                 Api.shared.post("/Home/Group/mute.html",
-                                form: ["qunid": String(chatId), "uid": String(t.id), "dur": String(durs[i])]) { r in
+                                form: ["qunid": String(chatId), "uid": String(uid), "dur": String(durs[i])]) { r in
                     DispatchQueue.main.async {
                         PayDialogs.toast(r.flatMap { $0.str("info").isEmpty ? $0.msg : $0.str("info") } ?? "网络异常")
                         if r?.status == 1 { loadPanel() }
                     }
                 }
-            }
-        }
-        .fullScreenCover(item: Binding(get: { transferInfo.map { InfoItem(d: $0) } },
-                                       set: { transferInfo = $0?.d })) { item in
-            TransferInfoSheet(d: item.d)
-        }
-        .fullScreenCover(isPresented: $showImagePicker) {
-            ImagePicker { ui in
-                if let d = ui?.jpegData(compressionQuality: 0.85) { uploadAndSendImage(d) }
-            }
-        }
-        .fullScreenCover(item: Binding(get: { viewer.map { SheetItem(u: $0) } },
-                                       set: { viewer = $0?.u })) { _ in
-            ImageViewer(url: viewer ?? "")
-        }
-        .onAppear { bootstrap() }
-        .onReceive(timer) { _ in poll() }
+        }))
     }
 
     struct InfoItem: Identifiable {
@@ -180,7 +147,7 @@ struct ChatScreen: View {
                             let showTime = i == 0 || (m.time - msgs[i - 1].time) > 300
                             ChatBubble(m: m, mine: m.senderId == myUid, showTime: showTime,
                                        showNick: isGroup && m.senderId != myUid,
-                                       onTapImage: { viewer = m.text },
+                                       onTapImage: { openCover(AnyView(ImageViewer(url: m.text))) },
                                        onTapHb: { openPacket(m.packId) },
                                        onTapZz: { openTransferInfo(m.packId) },
                                        onRecall: { recall(m) })
@@ -281,12 +248,12 @@ struct ChatScreen: View {
         VStack(spacing: 0) {
             Rectangle().fill(Color(hex: 0xDBDBDB)).frame(height: 1)
             HStack(spacing: 0) {
-                toolItem("h5ico_photo", "相册") { showToolBox = false; showImagePicker = true }
-                toolItem("h5ico_redpack", "红包") { showToolBox = false; showRedPacket = true }
+                toolItem("h5ico_photo", "相册") { showToolBox = false; openCover(AnyView(ImagePicker { ui in if let d = ui?.jpegData(compressionQuality: 0.85) { uploadAndSendImage(d) } })) }
+                toolItem("h5ico_redpack", "红包") { showToolBox = false; openRedPacket() }
                 toolItem("h5ico_transfer", "转账") { showToolBox = false; startTransfer() }
                 if isGroup {
-                    toolItem("h5ico_recharge", "充值") { showToolBox = false; showRecharge = true }
-                    toolItem("h5ico_withdraw", "提现") { showToolBox = false; showWithdraw = true }
+                    toolItem("h5ico_recharge", "充值") { showToolBox = false; openCover(AnyView(RechargePage(qunId: chatId))) }
+                    toolItem("h5ico_withdraw", "提现") { showToolBox = false; openCover(AnyView(WithdrawPage(qunId: chatId))) }
                 }
             }.padding(.vertical, 14)
         }
@@ -331,7 +298,7 @@ struct ChatScreen: View {
                         panelHeadline
                         Spacer()
                         if myManage == 1 {
-                            Button(action: { showMoneyLog = true }) {
+                            Button(action: { openCover(AnyView(MoneyLogSheet(qunId: chatId))) }) {
                                 Text("群金额明细").font(.system(size: 13, weight: .bold)).foregroundColor(.white)
                                     .padding(.horizontal, 12).padding(.vertical, 5)
                                     .background(Capsule().fill(Color(hex: 0x1AAD19)))
@@ -339,7 +306,7 @@ struct ChatScreen: View {
                         }
                     }
                     if myManage == 1 {
-                        Button(action: { showProfit = true }) {
+                        Button(action: { openCover(AnyView(ProfitStatSheet(qunId: chatId))) }) {
                             Text("分润统计").font(.system(size: 13)).foregroundColor(Color(hex: 0x576B95))
                                 .padding(.horizontal, 12).padding(.vertical, 5)
                                 .background(Capsule().fill(Color(hex: 0xEFF2F6)))
@@ -365,7 +332,7 @@ struct ChatScreen: View {
                             memberCell(panelMembers[i])
                         }
                         if myManage == 1 && !delMode {
-                            Button(action: { showAddMember = true }) {
+                            Button(action: { openCover(AnyView(MemberAddSheet(qunId: chatId, onDone: { loadPanel() }))) }) {
                                 VStack(spacing: 5) {
                                     Text("+").font(.system(size: 26)).foregroundColor(Color(hex: 0x7F7F7F))
                                         .frame(width: 50, height: 50)
@@ -406,22 +373,22 @@ struct ChatScreen: View {
                 // 底部功能行（安卓 opsList 1:1）
                 VStack(spacing: 0) {
                     panelOp("查找聊天记录", "") {
-                        WebFallback.open(Api.host + "/Home/Group/msgsearch.html?qunid=" + String(chatId), title: "查找聊天记录")
+                        openWeb(Api.host + "/Home/Group/msgsearch.html?qunid=" + String(chatId), "查找聊天记录")
                     }
-                    panelOp("群公告", qunNotice.isEmpty ? "未设置" : "查看") { showNotice = true }
-                    panelOp("我在本群的昵称", myNick) { showNick = true }
+                    panelOp("群公告", qunNotice.isEmpty ? "未设置" : "查看") { openCover(AnyView(NoticeSheet(notice: qunNotice))) }
+                    panelOp("我在本群的昵称", myNick) { openCover(AnyView(NickSheet(qunId: chatId, current: myNick, onDone: { loadPanel() }))) }
                     panelOp("群设置", "") {
-                        WebFallback.open(Api.host + "/Home/Group/setting.html?qunid=" + String(chatId), title: "群设置")
+                        openWeb(Api.host + "/Home/Group/setting.html?qunid=" + String(chatId), "群设置")
                     }
                     if myManage == 1 {
                         panelOp("成员分配（分润归属）", "") {
-                            WebFallback.open(Api.host + "/Home/Group/memberbind.html?qunid=" + String(chatId), title: "成员分配")
+                            openWeb(Api.host + "/Home/Group/memberbind.html?qunid=" + String(chatId), "成员分配")
                         }
                         panelOp("我的充值收款码", "") {
-                            WebFallback.open(Api.host + "/Home/Group/rechargecode.html?qunid=" + String(chatId), title: "我的充值收款码")
+                            openWeb(Api.host + "/Home/Group/rechargecode.html?qunid=" + String(chatId), "我的充值收款码")
                         }
                         panelOp("会员提现处理", "") {
-                            WebFallback.open(Api.host + "/Home/Group/payouts.html?qunid=" + String(chatId), title: "会员提现处理")
+                            openWeb(Api.host + "/Home/Group/payouts.html?qunid=" + String(chatId), "会员提现处理")
                         }
                     }
                     if bossUid > 0 && bossUid == myUid {
@@ -466,7 +433,7 @@ struct ChatScreen: View {
                         .padding(.horizontal, 10).padding(.vertical, 1)
                         .background(RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0xFDECEA)))
                         .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: 0xF5C6C0)))
-                        .onTapGesture { muteTarget = PanelMember(id: cUid, nickname: nick, money: o.str("money")) }
+                        .onTapGesture { openMute(cUid, nick) }
                 }
             }
         }.buttonStyle(.plain)
@@ -560,7 +527,7 @@ struct ChatScreen: View {
                 MoneyCard(text: "¥" + m.zzAmount, sub: m.text.isEmpty ? "转账" : m.text,
                           done: false, title: "微聊转账", action: onTapZz)
             } else {
-                Text(m.text)
+                Text(Emo.decode(m.text))
                     .font(.system(size: 16)).foregroundColor(Color(hex: 0x262626))
                     .padding(.horizontal, 10).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: 5)
@@ -800,7 +767,7 @@ struct ChatScreen: View {
                     WebFallback.open(Api.host + "/Home/Index/getPacketLog.html?id=" + String(packId), title: "微聊红包")
                     return
                 }
-                WebFallback.open(Api.host + "/Home/Index/getPacketPage.html?id=" + String(packId), title: "微聊红包")
+                openWeb(Api.host + "/Home/Index/getPacketPage.html?id=" + String(packId), "微聊红包")
                 packetTouched()
             }
         }
@@ -810,15 +777,15 @@ struct ChatScreen: View {
         Api.shared.post("/Api/Native/transferinfo.html", form: ["id": String(packId)]) { r in
             DispatchQueue.main.async {
                 guard let r = r, r.status == 200 else { return }
-                transferInfo = r.data
+                openCover(AnyView(TransferInfoSheet(d: r.data!)))
             }
         }
     }
 
     private func startTransfer() {
-        if !isGroup { showTransfer = true; return }
+        if !isGroup { openTransfer(); return }
         // 群转账直接进转账页点选群友（安卓同页内选人，不再单独选人弹窗）
-        showTransfer = true
+        openTransfer()
     }
 
     // MARK: - 成员面板
@@ -851,7 +818,7 @@ struct ChatScreen: View {
             return
         }
         if bossUid > 0 && bossUid == myUid && o.int("manage") != 1 && cUid != myUid {
-            adjustTarget = PanelMember(id: cUid, nickname: o.str("nickname"), money: o.str("money"))
+            openCover(AnyView(MoneyAdjustSheet(qunId: chatId, uid: cUid, nick: o.str("nickname"), curMoney: o.str("money"), onDone: { loadPanel() })))
         } else {
             showPanel = false
             input += "@" + o.str("nickname") + " "
@@ -904,6 +871,12 @@ final class RecorderBox: ObservableObject {
         recording = false
         if cancel { rec.finish { _, _ in } } else { rec.finish(done) }
     }
+}
+
+/// 单弹层路由容器：聊天页所有原生页/H5 页/弹层统一由它弹出（修复多 fullScreenCover 冲突）
+struct ChatCover: Identifiable {
+    let id = UUID()
+    let build: () -> AnyView
 }
 
 /// 虚线分隔
