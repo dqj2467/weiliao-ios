@@ -764,10 +764,10 @@ struct MoneyAdjustSheet: View {
                 .onTapGesture { mode.wrappedValue.dismiss() }
             VStack(spacing: 12) {
                 Text("金额调整").font(.system(size: 16, weight: .bold)).foregroundColor(Color(hex: 0x262626))
-                Text("「" + nick + "」当前群钱包余额：¥" + curMoney)
+                let sub = "「" + nick + "」当前群钱包余额：¥" + curMoney
+                Text(sub)
                     .font(.system(size: 14, weight: .bold)).foregroundColor(Color(hex: 0x262626))
-                TextField("调整金额（元）", text: $money)
-                    .keyboardType(.decimalPad)
+                TextField("调整金额（元）", text: $money)                    .keyboardType(.decimalPad)
                     .font(.system(size: 15)).frame(height: 42).padding(.horizontal, 10)
                     .background(RoundedRectangle(cornerRadius: 6).stroke(Color(hex: 0xDBDBDB)))
                 if !err.isEmpty { Text(err).font(.system(size: 13)).foregroundColor(Color(hex: 0xFA5151)) }
@@ -1037,7 +1037,8 @@ struct ProfitStatSheet: View {
     }
 
     private var profitSub: some View {
-        Text("今日 ¥" + today + " · 昨日 ¥" + yesterday + " · 共 " + cnt + " 笔")
+        let s = "今日 ¥" + today + " · 昨日 ¥" + yesterday + " · 共 " + cnt + " 笔"
+        return Text(s)
             .font(.system(size: 12)).foregroundColor(Color(hex: 0x999999))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14).padding(.bottom, 6)
@@ -1055,9 +1056,10 @@ struct ProfitStatSheet: View {
     }
     private func profitRow(_ o: JSONObject) -> some View {
         let fee = o.str("fee_desc")
+        let title = o.str("from_name") + " → " + o.str("to_name") + "（转 ¥" + o.str("amount") + "）"
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(o.str("from_name") + " → " + o.str("to_name") + "（转 ¥" + o.str("amount") + "）")
+                Text(title)
                     .font(.system(size: 13)).foregroundColor(Color(hex: 0x262626)).lineLimit(1)
                 Text(o.str("time") + " · " + (fee.isEmpty ? "群内分润" : fee))
                     .font(.system(size: 11)).foregroundColor(Color(hex: 0xB2B2B2))
