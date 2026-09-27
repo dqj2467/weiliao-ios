@@ -17,8 +17,8 @@ final class Recorder {
         try? session.setCategory(.playAndRecord)
         try? session.setActive(true)
         session.requestRecordPermission { ok in
-            guard ok else { return }
             DispatchQueue.main.async {
+                guard ok else { PayDialogs.toast("请在系统设置里允许微聊使用麦克风"); return }
                 let url = FileManager.default.temporaryDirectory.appendingPathComponent("v_\(Int(Date().timeIntervalSince1970)).m4a")
                 let s = AVAudioSession.sharedInstance()
                 try? s.setCategory(.playAndRecord, mode: .default)
@@ -29,6 +29,7 @@ final class Recorder {
                     AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue
                 ]
                 self.rec = try? AVAudioRecorder(url: url, settings: settings)
+                guard self.rec != nil else { PayDialogs.toast("录音启动失败"); return }
                 self.rec?.record()
                 self.started = Date()
                 self.recording = true
@@ -37,16 +38,26 @@ final class Recorder {
     }
 
     func finish(_ done: @escaping (String, Int) -> Void) {
-        guard recording, let r = rec else { return }
+        guard recording, let r = rec else {
+            recording = false
+            if rec == nil { DispatchQueue.main.async { PayDialogs.toast("录音不可用") } }
+            return
+        }
         r.stop()
         recording = false
-        let dur = Int(Date().timeIntervalSince(started))
-        guard dur >= 1 else { return }
+        let durMs = Int(Date().timeIntervalSince(started) * 1000)
+        guard durMs >= 600 else { DispatchQueue.main.async { PayDialogs.toast("说话时间太短") }; return }
+        let dur = max(1, durMs / 1000)
         let data = try? Data(contentsOf: r.url)
-        guard let data = data, !data.isEmpty else { return }
+        guard let data = data, !data.isEmpty else {
+            DispatchQueue.main.async { PayDialogs.toast("录音失败") }
+            return
+        }
         Api.shared.upload("/Home/Index/voiceUpload.html", fileData: data, fileName: "voice.m4a") { up in
             let path = up?.str("voice_path") ?? ""
-            if !path.isEmpty { done(path, dur) }
+            DispatchQueue.main.async {
+                if path.isEmpty { PayDialogs.toast("语音上传失败") } else { done(path, dur) }
+            }
         }
     }
 }
