@@ -997,30 +997,7 @@ struct ProfitStatSheet: View {
 
     var body: some View {
         BottomSheetScaffold(title: "分润统计") {
-            if !err.isEmpty {
-                Text(err).font(.system(size: 13)).foregroundColor(Color(hex: 0x999999))
-                    .frame(maxWidth: .infinity).padding(14)
-            } else {
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("本群累计分润").font(.system(size: 14)).foregroundColor(Color(hex: 0x8A8A8A))
-                        Spacer()
-                        Text("¥" + total).font(.system(size: 16, weight: .bold)).foregroundColor(Color(hex: 0xFA9D3B))
-                    }.padding(.horizontal, 14).padding(.bottom, 6)
-                    Text("今日 ¥" + today + " · 昨日 ¥" + yesterday + " · 共 " + cnt + " 笔")
-                        .font(.system(size: 12)).foregroundColor(Color(hex: 0x999999))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14).padding(.bottom, 6)
-                    ForEach(rows.indices, id: \.self) { i in
-                        profitRow(rows[i])
-                        Rectangle().fill(Color(hex: 0xF0F0F0)).frame(height: 0.5)
-                    }
-                    if rows.isEmpty {
-                        Text("本群还没有分润记录").font(.system(size: 13)).foregroundColor(Color(hex: 0xB2B2B2))
-                            .frame(maxWidth: .infinity).padding(14)
-                    }
-                }
-            }
+            profitContent
         }
         .onAppear {
             Api.shared.post("/Api/Native/qunprofit.html", form: ["qunid": String(qunId)]) { r in
@@ -1034,6 +1011,46 @@ struct ProfitStatSheet: View {
                     yesterday = d.str("yesterday"); cnt = d.str("cnt")
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var profitContent: some View {
+        if !err.isEmpty {
+            Text(err).font(.system(size: 13)).foregroundColor(Color(hex: 0x999999))
+                .frame(maxWidth: .infinity).padding(14)
+        } else {
+            VStack(spacing: 0) {
+                profitHead
+                profitSub
+                profitRows
+            }
+        }
+    }
+
+    private var profitHead: some View {
+        HStack {
+            Text("本群累计分润").font(.system(size: 14)).foregroundColor(Color(hex: 0x8A8A8A))
+            Spacer()
+            Text("¥" + total).font(.system(size: 16, weight: .bold)).foregroundColor(Color(hex: 0xFA9D3B))
+        }
+        .padding(.horizontal, 14).padding(.bottom, 6)
+    }
+
+    private var profitSub: some View {
+        Text("今日 ¥" + today + " · 昨日 ¥" + yesterday + " · 共 " + cnt + " 笔")
+            .font(.system(size: 12)).foregroundColor(Color(hex: 0x999999))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14).padding(.bottom, 6)
+    }
+
+    @ViewBuilder private var profitRows: some View {
+        ForEach(rows.indices, id: \.self) { i in
+            profitRow(rows[i])
+            Rectangle().fill(Color(hex: 0xF0F0F0)).frame(height: 0.5)
+        }
+        if rows.isEmpty {
+            Text("本群还没有分润记录").font(.system(size: 13)).foregroundColor(Color(hex: 0xB2B2B2))
+                .frame(maxWidth: .infinity).padding(14)
         }
     }
     private func profitRow(_ o: JSONObject) -> some View {
