@@ -117,6 +117,7 @@ struct Msg: Identifiable {
     var zzAmount: String
     var hbDone: Int
     var hbMine: Int
+    var money: String      // 发送者本群群钱包余额（getMag 下发，气泡头像下方显示）
     var id: Int64 { mid }
     var mine: Bool
 }
