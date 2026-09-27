@@ -62,7 +62,7 @@ struct RedPacketPage: View {
     private var label: String { type == 0 ? (isGroup ? "总金额" : "红包金额") : "单个金额" }
     private var total: Double {
         let a = Double(amount) ?? 0
-        return (isGroup && type == 1) ? a * max((Int(num) ?? 0), 0) : a
+        return (isGroup && type == 1) ? a * Double(max(Int(num) ?? 0, 0)) : a
     }
 
     var body: some View {
@@ -1022,6 +1022,20 @@ struct ProfitStatSheet: View {
                 }
             }
         }
+        .onAppear {
+            Api.shared.post("/Api/Native/qunprofit.html", form: ["qunid": String(qunId)]) { r in
+                DispatchQueue.main.async {
+                    guard let r = r, r.status == 200, let d = r.data else {
+                        err = r.flatMap { $0.msg.isEmpty ? "加载失败" : $0.msg } ?? "网络异常"
+                        return
+                    }
+                    rows = d.listItems
+                    total = d.str("total"); today = d.str("today")
+                    yesterday = d.str("yesterday"); cnt = d.str("cnt")
+                }
+            }
+        }
+    }
     private func profitRow(_ o: JSONObject) -> some View {
         let fee = o.str("fee_desc")
         return HStack(spacing: 8) {
@@ -1038,18 +1052,4 @@ struct ProfitStatSheet: View {
         .padding(.horizontal, 14).padding(.vertical, 9)
     }
 
-        .onAppear {
-            Api.shared.post("/Api/Native/qunprofit.html", form: ["qunid": String(qunId)]) { r in
-                DispatchQueue.main.async {
-                    guard let r = r, r.status == 200, let d = r.data else {
-                        err = r.flatMap { $0.msg.isEmpty ? "加载失败" : $0.msg } ?? "网络异常"
-                        return
-                    }
-                    rows = d.listItems
-                    total = d.str("total"); today = d.str("today")
-                    yesterday = d.str("yesterday"); cnt = d.str("cnt")
-                }
-            }
-        }
-    }
 }
