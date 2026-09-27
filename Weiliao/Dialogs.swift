@@ -12,11 +12,14 @@ func fmt2(_ n: Double) -> String {
 final class PayDialogs {
 
     private static func topVC() -> UIViewController? {
-        UIApplication.shared.connectedScenes
+        var vc = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
             .first(where: { $0.isKeyWindow })?
             .rootViewController
+        // v1.15：沿 presented 链走到底（root 被 fullScreenCover 占用时直接 present 会静默失败 → toast/confirm 全部无反应）
+        while let p = vc?.presentedViewController { vc = p }
+        return vc
     }
 
     static func alert(_ title: String, _ message: String) {
