@@ -58,10 +58,10 @@ struct MainScreen: View {
         .background(Color.white)
         .onAppear { refreshAll() }
         .onReceive(timer) { _ in if tab == 0 { loadConvs(false) } }
-        .background(EmptyView().sheet(item: $openChat) { c in
+        .fullScreenCover(item: $openChat) { c in
             ChatScreen(isGroup: c.isGroup, chatId: c.id, title: c.title,
                        onClosed: { loadConvs(true) })
-        })
+        }
     }
 
     private var headerTitle: String {
@@ -251,14 +251,14 @@ struct MainScreen: View {
         g.post("/Api/Native/groups.html", form: [:]) { gr in
             var arr: [Conv] = []
             if gr?.status == 200 {
-                for o in gr?.data?.arr ?? [] {
+                for o in gr?.data?.listItems ?? [] {
                     arr.append(Conv(isGroup: true, id: o.long("id"), title: o.str("name"),
                                     ico: o.str("ico"), lastTime: o.long("last_time"), unread: o.int("unread")))
                 }
             }
             g.post("/Api/Native/friends.html", form: [:]) { fr in
                 if fr?.status == 200 {
-                    for o in fr?.data?.arr ?? [] {
+                    for o in fr?.data?.listItems ?? [] {
                         arr.append(Conv(isGroup: false, id: o.long("id"), title: o.str("nickname"),
                                         ico: o.str("headimgurl"), lastTime: 0, unread: o.int("unread")))
                     }
@@ -280,7 +280,7 @@ struct MainScreen: View {
     private func loadContacts() {
         Api.shared.post("/Api/Native/groups.html", form: ["scope": "contacts"]) { gr in
             var arr: [ContactItem] = []
-            let gl = gr?.data?.arr ?? []
+            let gl = gr?.data?.listItems ?? []
             if !gl.isEmpty {
                 arr.append(ContactItem(isHeader: true, isGroup: true, id: 0, name: "群聊", ico: ""))
                 for o in gl {
@@ -289,7 +289,7 @@ struct MainScreen: View {
                 }
             }
             Api.shared.post("/Api/Native/friends.html", form: [:]) { fr in
-                let fl = fr?.data?.arr ?? []
+                let fl = fr?.data?.listItems ?? []
                 if !fl.isEmpty {
                     arr.append(ContactItem(isHeader: true, isGroup: false, id: 0, name: "好友", ico: ""))
                     for o in fl {
