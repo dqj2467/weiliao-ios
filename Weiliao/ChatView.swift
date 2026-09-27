@@ -373,7 +373,7 @@ struct ChatScreen: View {
                 // 底部功能行（安卓 opsList 1:1）
                 VStack(spacing: 0) {
                     panelOp("查找聊天记录", "") {
-                        openWeb(Api.host + "/Home/Group/msgsearch.html?qunid=" + String(chatId), "查找聊天记录")
+                        openWeb(Api.host + "/Home/Group/msgsearch.html?qunid=" + String(chatId) + "&_native=1", "查找聊天记录")
                     }
                     panelOp("群公告", qunNotice.isEmpty ? "未设置" : "查看") { openCover(AnyView(NoticeSheet(notice: qunNotice))) }
                     panelOp("我在本群的昵称", myNick) { openCover(AnyView(NickSheet(qunId: chatId, current: myNick, onDone: { loadPanel() }))) }

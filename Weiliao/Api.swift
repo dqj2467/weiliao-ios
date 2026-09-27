@@ -93,6 +93,11 @@ struct JSONObject {
         guard let a = raw["data"] as? [[String: Any]] else { return [] }
         return a.compactMap { JSONObject(dict: $0) }
     }
+    /// data 对象里 key 对应的数组（NativeController 口径：data:{members:[...]}）
+    func arrIn(_ k: String) -> [JSONObject] {
+        guard let a = raw[k] as? [[String: Any]] else { return [] }
+        return a.compactMap { JSONObject(dict: $0) }
+    }
     /// data 里的 list 数组（NativeController 口径：data:{list:[...]}）
     var listItems: [JSONObject] {
         guard let a = raw["list"] as? [[String: Any]] else { return [] }

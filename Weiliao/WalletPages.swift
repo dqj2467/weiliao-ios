@@ -381,7 +381,7 @@ struct TransferPage: View {
                     friendName = fr.str("nickname").isEmpty ? "" : fr.str("nickname")
                     friendFace = fr.str("headimgurl")
                 }
-                members = d.arr
+                members = d.arrIn("members")   // ★v1.17：服务端 data.members，旧 d.arr 读的是 data.data 恒空 → 群友网格不出现
                 loaded = true
             }
         }
@@ -728,10 +728,13 @@ struct WithdrawPage: View {
     }
 
     private func uploadQr(_ data: Data) {
-        Api.shared.upload("/Home/Index/fileUpload.html", fileData: data, fileName: "qrcode.jpg") { r in
-            let path = r?.str("img_path") ?? ""
+        // ★v1.17：必须走 Tixian/upload（存 /Public/Uploads/withdraw/，返回 url 字段）。
+        // 旧版走 fileUpload 存 /Uploads/image/chat/，withdrawSubmit 校验前缀不过 → 恒提示"请先上传您的收款码"
+        Api.shared.upload("/Home/Tixian/upload.html", fileData: data, fileName: "qrcode.jpg") { r in
+            let path = r?.str("url") ?? ""
+            let info = r?.str("info") ?? ""
             DispatchQueue.main.async {
-                if path.isEmpty { PayDialogs.toast("上传失败，请重试"); return }
+                if path.isEmpty { PayDialogs.toast(info.isEmpty ? "上传失败，请重试" : info); return }
                 qrUrl = path
                 qrImg = UIImage(data: data)
             }

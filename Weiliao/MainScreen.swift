@@ -35,6 +35,7 @@ struct MainScreen: View {
     @State var openChat: Conv? = nil
     @State var showLogoutConfirm = false
     @State var firstLoad = true
+    @State var voiceOn = VoiceBroadcaster.shared.enabled   // v1.17 语音播报开关
 
     let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
@@ -45,6 +46,17 @@ struct MainScreen: View {
                 Color(hex: 0xEDEDED)
                 Text(headerTitle).font(.system(size: 18, weight: .semibold)).foregroundColor(Color(hex: 0x262626))
             }.frame(height: 48)
+
+            // v1.17：顶部搜索栏（H5 微聊/通讯录同款灰底白框；站长反馈从发现进来有、原生 tab 没有。
+            //       搜索功能站长此前要求关闭，与 H5 当前状态一致：纯展示不响应点击）
+            if tab == 0 || tab == 1 {
+                Text("搜索").font(.system(size: 14)).foregroundColor(Color(hex: 0xB2B2B2))
+                    .frame(maxWidth: .infinity).frame(height: 36)
+                    .background(Color.white.cornerRadius(8))
+                    .padding(.horizontal, 9)
+                    .frame(height: 48)
+                    .background(Color(hex: 0xEDEDED))
+            }
 
             Group {
                 if tab == 0 { convList }
@@ -157,7 +169,14 @@ struct MainScreen: View {
                     PayPwdSheet.shared.showSet = true
                 }
 
-                // ⑥ 设置（H5 口径：进个人信息页）
+                // ⑥ 语音播报（v1.17：安卓同款开关，充值/提现申请 TTS 播报，默认开）
+                meRow(icon: "uc4", label: "语音播报", right: {
+                    Toggle("", isOn: $voiceOn).labelsHidden().fixedSize()
+                }) {
+                    VoiceBroadcaster.shared.enabled = voiceOn
+                }
+
+                // ⑦ 设置（H5 口径：进个人信息页）
                 meRow(icon: "uc4", label: "设置", right: { EmptyView() }) {
                     WebFallback.open(Api.host + "/Home/Member/gerenxinxi.html", title: "个人信息")
                 }

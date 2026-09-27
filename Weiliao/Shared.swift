@@ -37,16 +37,52 @@ struct RootContainer: View {
             }
             // 支付密码弹层改为覆盖层（overlay），任何页面之上都能弹出
             .overlay(PayPwdOverlay())
+            // v1.17：充值/提现语音播报（安卓 VoiceService 同口径），App 启动即开始轮询
+            .onAppear { VoiceBroadcaster.shared.start() }
     }
 }
 
-/// 支付密码覆盖层： observing 全局单例，showAsk/showSet 置真即显示
+/// 支付密码覆盖层（v1.17 重写）：v1.16 在 RootContainer 和 WalletPageScaffold 各挂一份，
+/// showAsk/showSet 置真时两份弹窗同时渲染、两个隐藏输入框抢键盘焦点 → 用户看到的六格不动（数字不显示）。
+/// 现改为独立 UIWindow 承载（windowLevel=alert），全局唯一实例，任何 fullScreenCover/overlay 之上，触发器只负责同步开关。
 struct PayPwdOverlay: View {
     @ObservedObject var pwd = PayPwdSheet.shared
     var body: some View {
-        ZStack {
-            if pwd.showAsk { PayPwdAskView() }
-            if pwd.showSet { PayPwdSetView() }
+        Color.clear.frame(width: 0, height: 0)
+            .onAppear { PayPwdWindowMgr.sync() }
+            .onChange(of: pwd.showAsk) { _ in PayPwdWindowMgr.sync() }
+            .onChange(of: pwd.showSet) { _ in PayPwdWindowMgr.sync() }
+    }
+}
+
+final class PayPwdWindowMgr {
+    static var win: UIWindow?
+
+    static func sync() {
+        let ps = PayPwdSheet.shared
+        if ps.showAsk || ps.showSet {
+            guard win == nil else { return }
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+                ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+            guard let scene = scene else { return }
+            let w = UIWindow(frame: scene.coordinateSpace.bounds)
+            w.windowScene = scene
+            w.windowLevel = .alert + 1
+            w.backgroundColor = .clear
+            let ask = ps.showAsk
+            let host = UIHostingController(rootView: Group {
+                if ask { AnyView(PayPwdAskView()) } else { AnyView(PayPwdSetView()) }
+            })
+            host.view.backgroundColor = .clear
+            w.rootViewController = host
+            w.makeKeyAndVisible()
+            win = w
+        } else if let w = win {
+            w.isHidden = true
+            w.rootViewController = nil
+            win = nil
         }
     }
 }
