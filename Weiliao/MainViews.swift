@@ -13,7 +13,7 @@ struct RootView: View {
     @AppStorage("logged_in") var loggedIn = false
     var body: some View {
         if loggedIn {
-            H5MainScreen(loggedIn: $loggedIn)
+            MainScreen(loggedIn: $loggedIn)   // 【v1.10】原生主框架（会话/通讯录/发现/我），替代 H5MainScreen
         } else {
             LoginView(loggedIn: $loggedIn)
         }
@@ -132,10 +132,10 @@ struct LoginView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 顶部导航栏（MUI bar：浅灰底 + 居中标题）
+            // 顶部导航栏（安卓 v5.38 对齐 H5：绿头部 #45C01A + 白字标题）
             ZStack {
-                barGray
-                Text("登录").font(.system(size: 17)).foregroundColor(Color(hex: 0x262626))
+                green
+                Text("登录").font(.system(size: 17)).foregroundColor(.white)
             }.frame(height: 48)
 
             ScrollView(showsIndicators: false) {
@@ -154,14 +154,20 @@ struct LoginView: View {
                     .background(Color.white)
                     .padding(.horizontal, 30)
 
-                    // 输入组（白卡 + 细分隔线，同 MUI input-group）
+                    // 输入组（白卡 + 细分隔线 + 手机/锁图标，安卓 v5.38 同款）
                     VStack(spacing: 0) {
-                        TextField("请输入账号/手机号", text: $phone)
-                            .keyboardType(.default)
-                            .font(.system(size: 16))
-                            .frame(height: 45).padding(.horizontal, 15)
+                        HStack(spacing: 0) {
+                            Image("ico_phone").resizable().scaledToFit()
+                                .frame(width: 18, height: 22).padding(.leading, 15)
+                            TextField("请输入账号/手机号", text: $phone)
+                                .keyboardType(.default)
+                                .font(.system(size: 16))
+                                .frame(height: 45).padding(.horizontal, 10)
+                        }
                         Rectangle().fill(hairline).frame(height: 0.5)
                         HStack(spacing: 0) {
+                            Image("ico_lock").resizable().scaledToFit()
+                                .frame(width: 18, height: 22).padding(.leading, 15)
                             Group {
                                 if pwdVisible {
                                     TextField("请输入密码", text: $pwd)
@@ -170,9 +176,9 @@ struct LoginView: View {
                                 }
                             }
                             .font(.system(size: 16))
-                            .frame(height: 45).padding(.leading, 15)
+                            .frame(height: 45).padding(.leading, 10)
                             Button(pwdVisible ? "隐藏" : "显示") { pwdVisible.toggle() }
-                                .font(.system(size: 13)).foregroundColor(green)
+                                .font(.system(size: 13)).foregroundColor(Color(hex: 0x999999))   // 安卓 v5.38：显示改灰
                                 .padding(.leading, 8).padding(.trailing, 15)
                         }
                     }
@@ -193,14 +199,14 @@ struct LoginView: View {
                     .disabled(busy)
                     .padding(.horizontal, 15).padding(.top, 24)
 
-                    // 注册按钮（网页版第二颗 .submit）
+                    // 注册按钮（安卓 v5.38：与登录按钮间距 20）
                     Button(action: { showSignup = true }) {
                         Text("注册")
                             .font(.system(size: 16)).foregroundColor(.white)
                             .frame(maxWidth: .infinity).frame(height: 42)
                             .background(green).cornerRadius(4)
                     }
-                    .padding(.horizontal, 15).padding(.top, 8)
+                    .padding(.horizontal, 15).padding(.top, 20)
                     Spacer().frame(height: 30)
                 }
             }
