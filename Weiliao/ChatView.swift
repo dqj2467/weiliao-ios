@@ -355,8 +355,8 @@ struct ChatScreen: View {
                 // 成员白卡网格（5 列）
                 VStack(spacing: 0) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 14) {
-                        ForEach(panelMembers, id: \.raw) { o in
-                            memberCell(o)
+                        ForEach(panelMembers.indices, id: \.self) { i in
+                            memberCell(panelMembers[i])
                         }
                         if myManage == 1 && !delMode {
                             Button(action: { showAddMember = true }) {
@@ -658,7 +658,7 @@ struct ChatScreen: View {
     private func firstLoad() {
         Api.shared.post(endPath, form: baseParams()) { r in
             DispatchQueue.main.async { loadedOnce = true }
-            if let r = r, r.status == 200 { apply(r) ; refreshPacketStates() }
+            if let r = r, r.status == 200 { apply(r); packetTouched() }
         }
     }
 
