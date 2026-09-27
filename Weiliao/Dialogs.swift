@@ -20,6 +20,15 @@ final class PayDialogs {
         vc.present(a, animated: true)
     }
 
+    /// 二次确认弹窗（确定/取消）
+    static func confirm(_ message: String, ok: @escaping () -> Void) {
+        guard let vc = topVC() else { return }
+        let a = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: "确定", style: .destructive) { _ in ok() })
+        a.addAction(UIAlertAction(title: "取消", style: .cancel))
+        vc.present(a, animated: true)
+    }
+
     static func toast(_ message: String) {
         guard let vc = topVC() else { return }
         let a = UIAlertController(title: nil, message: message, preferredStyle: .alert)
