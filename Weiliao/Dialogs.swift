@@ -276,7 +276,8 @@ struct ZZConfirmView: View {
                     }
                     Text("¥" + fmt2(amount)).font(.system(size: 30, weight: .bold)).foregroundColor(Color(hex: 0x262626)).padding(.top, 12)
                     if fee > 0 {
-                        Text("平台服务费 ¥" + fmt2(fee) + "，对方实收 ¥" + fmt2(amount - fee))
+                        let feeLine = "平台服务费 ¥" + fmt2(fee) + "，对方实收 ¥" + fmt2(amount - fee)
+                        Text(feeLine)
                             .font(.system(size: 13)).foregroundColor(Color(hex: 0xE6A23C)).padding(.top, 6)
                     }
                     Text("请再次确认收款方与金额").font(.system(size: 13)).foregroundColor(Color(hex: 0x999999)).padding(.top, 6)
