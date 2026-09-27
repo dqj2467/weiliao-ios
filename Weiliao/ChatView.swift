@@ -790,11 +790,11 @@ struct ChatScreen: View {
         Api.shared.post("/Home/Index/getPacket.html", form: ["id": String(packId)]) { pre in
             DispatchQueue.main.async {
                 guard let pre = pre, pre.status == 1 else {
-                    // 已领完/已领过 → 看领取记录页（H5 全屏）
-                    WebFallback.open(Api.host + "/Home/Index/packet_log.html?id=" + String(packId), title: "红包领取详情")
+                    // 已领完/已领过 → 看领取记录页（安卓同款 getPacketLog，H5 全屏）
+                    WebFallback.open(Api.host + "/Home/Index/getPacketLog.html?id=" + String(packId), title: "微聊红包")
                     return
                 }
-                WebFallback.open(Api.host + "/Home/Index/packet_page.html?id=" + String(packId), title: "")
+                WebFallback.open(Api.host + "/Home/Index/getPacketPage.html?id=" + String(packId), title: "微聊红包")
                 packetTouched()
             }
         }

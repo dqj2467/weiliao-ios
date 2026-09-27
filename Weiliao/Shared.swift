@@ -120,11 +120,20 @@ struct WebViewHost: UIViewRepresentable {
         context.coordinator.lockDelegate = proxy
         context.coordinator.web = wv
         wv.navigationDelegate = context.coordinator
-        // 同步原生会话给 WebView
-        if let cookies = HTTPCookieStorage.shared.cookies {
-            for c in cookies { cfg.websiteDataStore.httpCookieStore.setCookie(c, completionHandler: {}) }
+        // 同步原生会话给 WebView：setCookie 是异步的，必须等全部灌完再 load，
+        // 否则首个请求不带登录态 → H5 直接跳登录页（v1.13 修复：点红包/发现页打开即登录）
+        let cookies = HTTPCookieStorage.shared.cookies ?? []
+        let store = cfg.websiteDataStore.httpCookieStore
+        let loadReq = url.flatMap { URL(string: $0) }.map { URLRequest(url: $0) }
+        if cookies.isEmpty {
+            if let req = loadReq { wv.load(req) }
+        } else {
+            let g = DispatchGroup()
+            for c in cookies { g.enter(); store.setCookie(c) { g.leave() } }
+            g.notify(queue: .main) {
+                if let req = loadReq { wv.load(req) }
+            }
         }
-        if let u = URL(string: url) { wv.load(URLRequest(url: u)) }
         return wv
     }
 
