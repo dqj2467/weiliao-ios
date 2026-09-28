@@ -540,30 +540,48 @@ final class CloudBox: NSObject, TRTCCloudDelegate {
 final class CallWindowMgr {
     static var win: UIWindow?
 
+    /// 【v1.26】主叫入口：聊天页拨打后走独立 UIWindow（原 fullScreenCover 嵌套在聊天页 cover 里静默不显示——v1.25 实测：页面活着、音频通、界面看不见）
+    static func presentCaller(_ info: CallInfo) {
+        guard win == nil else { return }
+        present(info, role: .caller, onClose: {
+            CallManager.shared.active = false
+            dismiss()
+        })
+    }
+
+    /// 被叫入口（poll 到来电）：沿用原逻辑
     static func sync() {
         let mgr = CallManager.shared
         if let info = mgr.incoming {
             guard win == nil else { return }
-            let scene = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first { $0.activationState == .foregroundActive }
-                ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-            guard let scene = scene else { return }
-            let w = UIWindow(windowScene: scene)
-            w.windowLevel = .alert + 2
-            w.backgroundColor = .clear
-            let page = CallPage(role: .callee, info: info, onClose: {
+            present(info, role: .callee, onClose: {
                 mgr.incoming = nil
-                CallWindowMgr.sync()
+                sync()
             })
-            w.rootViewController = UIHostingController(rootView: page)
-            w.makeKeyAndVisible()
-            win = w
         } else {
-            win?.isHidden = true
-            win?.rootViewController = nil
-            win = nil
+            dismiss()
         }
+    }
+
+    private static func present(_ info: CallInfo, role: CallPage.Role, onClose: @escaping () -> Void) {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+            ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard let scene = scene else { return }
+        let w = UIWindow(windowScene: scene)
+        w.windowLevel = .alert + 2
+        w.backgroundColor = .clear
+        let page = CallPage(role: role, info: info, onClose: onClose)
+        w.rootViewController = UIHostingController(rootView: page)
+        w.makeKeyAndVisible()
+        win = w
+    }
+
+    static func dismiss() {
+        win?.isHidden = true
+        win?.rootViewController = nil
+        win = nil
     }
 }
 

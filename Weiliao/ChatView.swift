@@ -89,12 +89,13 @@ struct ChatScreen: View {
     private func openRedPacket() { openCover(AnyView(RedPacketPage(isGroup: isGroup, chatId: chatId, onSent: { packetTouched() }))) }
 
     /// 【v1.22】发起 1v1 语音通话：invite 拿 callid/roomid/sig → CallPage
+    /// 【v1.26】改走 CallWindowMgr 独立 UIWindow（原 openCover 嵌套 fullScreenCover 静默不显示：页面活着、音频通、界面看不见）
     private func startVoiceCall() {
         PayDialogs.toast("正在发起通话…")
         CallManager.shared.invite(peerId: chatId) { info, err in
             DispatchQueue.main.async {
                 if let info = info {
-                    openCover(AnyView(CallPage(role: .caller, info: info, onClose: { cover = nil })))
+                    CallWindowMgr.presentCaller(info)
                 } else {
                     PayDialogs.toast(err.isEmpty ? "呼叫失败" : err)
                 }
