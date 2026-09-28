@@ -108,28 +108,37 @@ struct MainScreen: View {
         .background(Color.white)
     }
 
-    // MARK: - Tab2 通讯录（安卓 scope=contacts 口径）
+    // MARK: - Tab2 通讯录（v1.25 微信式：组头灰横条 + 每行间细分隔横条）
+
+    /// 微信式行分隔线：左侧从文字起线（15 + 42头像 + 12间距）
+    private var wxDivider: some View {
+        Rectangle().fill(Color(hex: 0xE5E5E5)).frame(height: 0.5)
+            .padding(.leading, 69)
+    }
 
     private var contactList: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 // 【v1.22】新的朋友（微信样式，红点=待处理好友申请数）
                 Button(action: { contactSheet = .friendReqs }) {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x07C160)).frame(width: 42, height: 42)
-                            Text("＋").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                    VStack(spacing: 0) {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x07C160)).frame(width: 42, height: 42)
+                                Text("＋").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                            }
+                            Text("新的朋友").font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
+                            Spacer()
+                            if CallManager.shared.pendingReqs > 0 {
+                                Text(String(CallManager.shared.pendingReqs))
+                                    .font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                                    .frame(width: 18, height: 18).background(Circle().fill(Color(hex: 0xFA5151)))
+                            }
+                            Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
                         }
-                        Text("新的朋友").font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
-                        Spacer()
-                        if CallManager.shared.pendingReqs > 0 {
-                            Text(String(CallManager.shared.pendingReqs))
-                                .font(.system(size: 11, weight: .bold)).foregroundColor(.white)
-                                .frame(width: 18, height: 18).background(Circle().fill(Color(hex: 0xFA5151)))
-                        }
-                        Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
+                        .padding(.horizontal, 15).padding(.vertical, 8)
+                        wxDivider
                     }
-                    .padding(.horizontal, 15).padding(.vertical, 8)
                     .background(Color.white)
                 }.buttonStyle(.plain)
                 ForEach(contacts) { it in
@@ -141,13 +150,16 @@ struct MainScreen: View {
                             .background(Color(hex: 0xF5F6F7))
                     } else {
                         Button(action: { openChat = Conv(isGroup: it.isGroup, id: it.id, title: it.name, ico: it.ico) }) {
-                            HStack(spacing: 12) {
-                                Avatar(url: it.ico, fallback: it.name, size: 42)
-                                Text(it.name).font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
-                                Spacer()
-                                Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
+                            VStack(spacing: 0) {
+                                HStack(spacing: 12) {
+                                    Avatar(url: it.ico, fallback: it.name, size: 42)
+                                    Text(it.name).font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
+                                    Spacer()
+                                    Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
+                                }
+                                .padding(.horizontal, 15).padding(.vertical, 8)
+                                wxDivider
                             }
-                            .padding(.horizontal, 15).padding(.vertical, 8)
                             .background(Color.white)
                         }.buttonStyle(.plain)
                     }
