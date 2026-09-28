@@ -247,12 +247,12 @@ struct CallPage: View {
     }
 
     private func reject() {
-        Api.shared.post("/Api/Call/reject.html", form: ["callid": String(info.callid)])
+        Api.shared.post("/Api/Call/reject.html", form: ["callid": String(info.callid)]) { _ in }
         end("已拒接")
     }
 
     private func hangup() {
-        Api.shared.post("/Api/Call/hangup.html", form: ["callid": String(info.callid)])
+        Api.shared.post("/Api/Call/hangup.html", form: ["callid": String(info.callid)]) { _ in }
         end(phase == 1 ? "通话结束" : "已取消")
     }
 
@@ -350,7 +350,8 @@ struct CallPage: View {
 
 /// TRTC 云实例盒（struct 里持有 class 引用，随 CallPage 生命周期）
 /// 【12.x】iOS SDK 监听协议是 TRTCCloudDelegate（不是安卓的 Listener），经 delegate 属性设置
-private final class CloudBox: NSObject, TRTCCloudDelegate {
+/// 注意：不能 private —— CallPage 依赖 memberwise init，存储属性必须 internal
+final class CloudBox: NSObject, TRTCCloudDelegate {
     var trtc: TRTCCloud?
     private var onPeerAudio: ((Bool) -> Void)?
 
