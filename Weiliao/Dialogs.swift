@@ -365,7 +365,7 @@ struct ZZConfirmView: View {
                         Text("取消").font(.system(size: 16)).foregroundColor(Color(hex: 0x666666))
                             .frame(maxWidth: .infinity).frame(height: 46)
                     }
-                    Rectangle().fill(Color(hex: 0xE5E5E5)).frame(width: 1)
+                    Rectangle().fill(Color(hex: 0xE5E5E5)).frame(width: 1, height: 46)   // ★必须限高：Rectangle 默认 greedy，会把整卡撑满屏高（站长截图实锤）
                     Button(action: { mode.wrappedValue.dismiss(); onOk() }) {
                         Text("转账").font(.system(size: 16, weight: .bold)).foregroundColor(Color(hex: 0x1AAD19))
                             .frame(maxWidth: .infinity).frame(height: 46)
