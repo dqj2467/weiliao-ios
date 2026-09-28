@@ -102,6 +102,25 @@ struct ChatScreen: View {
         }
     }
     private func openTransfer() { openCover(AnyView(TransferPage(isGroup: isGroup, chatId: chatId, onSent: { poll() }))) }
+
+    /// 【v1.22】删除好友：双向删除好友关系（/Home/Search/delFriend），聊天记录保留
+    private func confirmDelFriend() {
+        PayDialogs.confirm("将「\(title)」删除？删除后需重新添加为好友") {
+            Api.shared.post("/Home/Search/delFriend.html",
+                            form: ["friendid": String(chatId)]) { r in
+                DispatchQueue.main.async {
+                    if r?.status == 1 {
+                        PayDialogs.toast("已删除")
+                        mode.wrappedValue.dismiss()
+                        onClosed()
+                    } else {
+                        PayDialogs.toast(r.flatMap { $0.str("msg").isEmpty ? $0.msg : $0.str("msg") } ?? "网络异常")
+                    }
+                }
+            }
+        }
+    }
+
     private func openWeb(_ u: String, _ t: String) { openCover(AnyView(WebViewScreen(url: u, title: t))) }
     private func openMute(_ uid: Int64, _ nick: String) {
         openCover(AnyView(SheetMenuView(title: "禁言「" + nick + "」",
@@ -284,8 +303,9 @@ struct ChatScreen: View {
                 toolItem("h5ico_redpack", "红包") { showToolBox = false; openRedPacket() }
                 toolItem("h5ico_transfer", "转账") { showToolBox = false; startTransfer() }
                 if !isGroup {
-                    // 【v1.22】好友聊天：1v1 语音通话（TRTC）
+                    // 【v1.22】好友聊天：1v1 语音通话（TRTC）+ 删除好友
                     toolItemSys("phone.fill", "语音通话") { showToolBox = false; startVoiceCall() }
+                    toolItemSys("person.badge.minus", "删除好友") { showToolBox = false; confirmDelFriend() }
                 }
                 if isGroup {
                     toolItem("h5ico_recharge", "充值") { showToolBox = false; openCover(AnyView(RechargePage(qunId: chatId))) }

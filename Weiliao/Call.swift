@@ -9,7 +9,7 @@ import TXLiteAVSDK_TRTC
 //  - iOS 限制：APP 内接听（无 VoIP push），锁屏来电二期待 Apple 开发者账号配置
 // ============================================================
 
-struct CallInfo: Identifiable {
+struct CallInfo: Equatable, Identifiable {
     let id = UUID()
     var callid: Int64 = 0
     var roomid: Int64 = 0
@@ -157,7 +157,7 @@ struct CallPage: View {
     @State var speaker = false
     @State var stateTimer: Timer?
     @State var secTimer: Timer?
-    private var cloud = CloudBox()
+    var cloud = CloudBox()
 
     var body: some View {
         ZStack {
@@ -200,7 +200,9 @@ struct CallPage: View {
                         }
                         circleBtn(speaker ? "听筒" : "免提", color: Color(hex: 0x33FFFFFF)) {
                             speaker.toggle()
-                            cloud.trtc?.setAudioRoute(speaker ? .speakerphone : .earpiece)
+                            // 【12.x】setAudioRoute 已移到 DeviceManager，枚举 TXAudioRoute
+                            cloud.trtc?.getDeviceManager().setAudioRoute(
+                                speaker ? TXAudioRoute.speakerphone : TXAudioRoute.earpiece)
                         }
                         circleBtn("挂断", color: Color(hex: 0xFFFF4E43)) { hangup() }
                     }.padding(.bottom, 60)
@@ -245,12 +247,12 @@ struct CallPage: View {
     }
 
     private func reject() {
-        Api.shared.post("/Api/Call/reject.html", form: ["callid": String(info.callid)], form: [:])
+        Api.shared.post("/Api/Call/reject.html", form: ["callid": String(info.callid)])
         end("已拒接")
     }
 
     private func hangup() {
-        Api.shared.post("/Api/Call/hangup.html", form: ["callid": String(info.callid)], form: [:])
+        Api.shared.post("/Api/Call/hangup.html", form: ["callid": String(info.callid)])
         end(phase == 1 ? "通话结束" : "已取消")
     }
 
@@ -347,7 +349,8 @@ struct CallPage: View {
 }
 
 /// TRTC 云实例盒（struct 里持有 class 引用，随 CallPage 生命周期）
-private final class CloudBox: NSObject, TRTCCloudListener {
+/// 【12.x】iOS SDK 监听协议是 TRTCCloudDelegate（不是安卓的 Listener），经 delegate 属性设置
+private final class CloudBox: NSObject, TRTCCloudDelegate {
     var trtc: TRTCCloud?
     private var onPeerAudio: ((Bool) -> Void)?
 
@@ -355,7 +358,7 @@ private final class CloudBox: NSObject, TRTCCloudListener {
         guard trtc == nil else { return }
         self.onPeerAudio = onPeerAudio
         let c = TRTCCloud.sharedInstance()
-        c.setListener(self)
+        c.delegate = self
         let p = TRTCParams()
         p.sdkAppId = appid
         p.userId = uid
@@ -364,7 +367,7 @@ private final class CloudBox: NSObject, TRTCCloudListener {
         p.role = .anchor
         trtc = c
         c.enterRoom(p, appScene: .audioCall)
-        c.setAudioRoute(.earpiece)
+        c.getDeviceManager().setAudioRoute(.earpiece)
     }
 
     func leave() {
@@ -375,21 +378,21 @@ private final class CloudBox: NSObject, TRTCCloudListener {
         trtc = nil
     }
 
-    // MARK: - TRTCCloudListener
-    override func onEnterRoom(_ result: Int) {
+    // MARK: - TRTCCloudDelegate（@objc 协议方法，不加 override）
+    func onEnterRoom(_ result: Int) {
         if result >= 0 { trtc?.startLocalAudio(.default) }
     }
 
-    override func onUserAudioAvailable(_ userId: String, available: Bool) {
+    func onUserAudioAvailable(_ userId: String, available: Bool) {
         if available { onPeerAudio?(true) }
     }
 
-    override func onRemoteUserLeaveRoom(_ userId: String, reason: Int) {
+    func onRemoteUserLeaveRoom(_ userId: String, reason: Int) {
         onPeerAudio?(false)
     }
 
-    override func onError(_ errCode: Int32, errMsg: String?, extraInfo: [AnyHashable: Any]?) {
-        Api.dbg("TRTC err \(errCode) \(errMsg ?? "")")
+    func onError(_ errCode: Int32, errMsg: String?, extraInfo: [AnyHashable: Any]?) {
+        print("TRTC err \(errCode) \(errMsg ?? "")")
     }
 }
 

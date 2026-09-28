@@ -2,7 +2,8 @@ import SwiftUI
 
 // ============================================================
 // 添加好友 / 新的朋友（v1.22 2026-09-28，与安卓 AddFriendActivity/FriendReqActivity 同构）
-//   AddFriendSheet：通讯录「+」→ 搜微聊号/账号/昵称 → 发申请（需对方同意）
+//   AddFriendSheet：通讯录「+」→ 搜「账号」精确查找（2026-09-28 站长定版：微聊号/昵称不参与）
+//                   → 发申请（需对方同意）
 //   FriendReqSheet：「新的朋友」→ 同意/拒绝（同意=服务端建双向好友）
 // 复用 H5 搜索：POST /Home/Search/doSearch.html kw=
 // ============================================================
@@ -18,7 +19,7 @@ struct SearchUser: Identifiable {
     let id: Int64
     var name: String
     var face: String
-    var weihao: String
+    var phone: String
     var isFriend: Bool
     var sent: Bool
     var sending: Bool
@@ -35,7 +36,7 @@ struct AddFriendSheet: View {
         VStack(spacing: 0) {
             sheetHead("添加好友")
             HStack(spacing: 8) {
-                TextField("微聊号 / 账号 / 昵称", text: $kw)
+                TextField("输入对方的账号", text: $kw)
                     .font(.system(size: 14))
                     .padding(.horizontal, 10).frame(height: 36)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color(hex: 0xF7F7F7))
@@ -46,7 +47,7 @@ struct AddFriendSheet: View {
                 }
             }.padding(.horizontal, 12).padding(.vertical, 10)
 
-            Text("输入微聊号精确匹配，也可以搜昵称；加好友需对方同意")
+            Text("输入对方的账号精确查找，加好友需对方同意")
                 .font(.system(size: 12)).foregroundColor(Color(hex: 0x999999))
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 15)
 
@@ -61,7 +62,7 @@ struct AddFriendSheet: View {
                             Avatar(url: u.face, fallback: u.name, size: 42)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(u.name).font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
-                                Text("微聊号 " + (u.weihao.isEmpty ? String(u.id) : u.weihao))
+                                Text("账号 " + u.phone)
                                     .font(.system(size: 12)).foregroundColor(Color(hex: 0x999999))
                             }
                             Spacer()
@@ -95,7 +96,7 @@ struct AddFriendSheet: View {
                         out.append(SearchUser(id: row.long("id"),
                                               name: row.str("nickname"),
                                               face: row.str("headimgurl"),
-                                              weihao: row.str("weihao"),
+                                              phone: row.str("phone"),
                                               isFriend: row.int("is_friend") == 1,
                                               sent: false, sending: false))
                     }
@@ -124,12 +125,12 @@ struct AddFriendSheet: View {
     }
 
     private func sheetHead(_ title: String) -> some View {
-        ZStack {
-            Color(hex: 0xEDEDED)
-            Text(title).font(.system(size: 17, weight: .semibold)).foregroundColor(Color(hex: 0x262626))
-        }
-        .frame(height: 48)
-        .overlay(alignment: .leading) {
+        ZStack(alignment: .leading) {
+            ZStack {
+                Color(hex: 0xEDEDED)
+                Text(title).font(.system(size: 17, weight: .semibold)).foregroundColor(Color(hex: 0x262626))
+            }
+            .frame(height: 48)
             Button(action: { mode.wrappedValue.dismiss() }) {
                 Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Color(hex: 0x333333)).padding(.leading, 14)
