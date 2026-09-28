@@ -210,11 +210,11 @@ struct CallPage: View {
                 } else if phase == 1 {
                     // 通话中：静音 / 免提 / 挂断
                     HStack(spacing: 30) {
-                        circleBtn(micOn ? "静音" : "已静音", color: Color(hex: 0x33FFFFFF)) {
+                        circleBtn(micOn ? "静音" : "已静音", color: Color(hex: 0x4A4E54)) {
                             micOn.toggle()
                             cloud.trtc?.muteLocalAudio(!micOn)
                         }
-                        circleBtn(speaker ? "听筒" : "免提", color: Color(hex: 0x33FFFFFF)) {
+                        circleBtn(speaker ? "听筒" : "免提", color: Color(hex: 0x4A4E54)) {
                             speaker.toggle()
                             // 【12.x】setAudioRoute 已移到 DeviceManager，枚举 TXAudioRoute
                             cloud.trtc?.getDeviceManager().setAudioRoute(
