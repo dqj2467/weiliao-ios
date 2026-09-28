@@ -35,16 +35,26 @@ struct MainScreen: View {
     @State var openChat: Conv? = nil
     @State var showLogoutConfirm = false
     @State var firstLoad = true
+    @State var contactSheet: ContactSheetKind? = nil
     @State var voiceOn = VoiceBroadcaster.shared.enabled   // v1.17 语音播报开关
 
     let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 0) {
-            // 顶部标题栏（安卓 #EDEDED 52dp）
+            // 顶部标题栏（安卓 #EDEDED 52dp）；通讯录右上角「+」→ 添加好友
             ZStack {
                 Color(hex: 0xEDEDED)
                 Text(headerTitle).font(.system(size: 18, weight: .semibold)).foregroundColor(Color(hex: 0x262626))
+                if tab == 1 {
+                    HStack {
+                        Spacer()
+                        Button(action: { contactSheet = .addFriend }) {
+                            Text("＋").font(.system(size: 22, weight: .semibold)).foregroundColor(Color(hex: 0x262626))
+                                .frame(width: 40, height: 40)
+                        }
+                    }
+                }
             }.frame(height: 48)
 
             // v1.17：顶部搜索栏（H5 微聊/通讯录同款灰底白框；站长反馈从发现进来有、原生 tab 没有。
@@ -64,6 +74,9 @@ struct MainScreen: View {
                 else { mePage }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .sheet(item: $contactSheet) { which in
+                which == .addFriend ? AnyView(AddFriendSheet()) : AnyView(FriendReqSheet())
+            }
 
             tabBar
         }
@@ -100,6 +113,25 @@ struct MainScreen: View {
     private var contactList: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 0) {
+                // 【v1.22】新的朋友（微信样式，红点=待处理好友申请数）
+                Button(action: { contactSheet = .friendReqs }) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x07C160)).frame(width: 42, height: 42)
+                            Text("＋").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                        }
+                        Text("新的朋友").font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
+                        Spacer()
+                        if CallManager.shared.pendingReqs > 0 {
+                            Text(String(CallManager.shared.pendingReqs))
+                                .font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                                .frame(width: 18, height: 18).background(Circle().fill(Color(hex: 0xFA5151)))
+                        }
+                        Text("›").font(.system(size: 18)).foregroundColor(Color(hex: 0xD9D9D9))
+                    }
+                    .padding(.horizontal, 15).padding(.vertical, 8)
+                    .background(Color.white)
+                }.buttonStyle(.plain)
                 ForEach(contacts) { it in
                     if it.isHeader {
                         Text(it.name)

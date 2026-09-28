@@ -87,6 +87,20 @@ struct ChatScreen: View {
         cover = ChatCover(build: { v })
     }
     private func openRedPacket() { openCover(AnyView(RedPacketPage(isGroup: isGroup, chatId: chatId, onSent: { packetTouched() }))) }
+
+    /// 【v1.22】发起 1v1 语音通话：invite 拿 callid/roomid/sig → CallPage
+    private func startVoiceCall() {
+        PayDialogs.toast("正在发起通话…")
+        CallManager.shared.invite(peerId: chatId) { info, err in
+            DispatchQueue.main.async {
+                if let info = info {
+                    openCover(AnyView(CallPage(role: .caller, info: info, onClose: { cover = nil })))
+                } else {
+                    PayDialogs.toast(err.isEmpty ? "呼叫失败" : err)
+                }
+            }
+        }
+    }
     private func openTransfer() { openCover(AnyView(TransferPage(isGroup: isGroup, chatId: chatId, onSent: { poll() }))) }
     private func openWeb(_ u: String, _ t: String) { openCover(AnyView(WebViewScreen(url: u, title: t))) }
     private func openMute(_ uid: Int64, _ nick: String) {
@@ -269,12 +283,26 @@ struct ChatScreen: View {
                 toolItem("h5ico_photo", "相册") { showToolBox = false; openCover(AnyView(ImagePicker { ui in if let d = ui?.jpegData(compressionQuality: 0.85) { uploadAndSendImage(d) } })) }
                 toolItem("h5ico_redpack", "红包") { showToolBox = false; openRedPacket() }
                 toolItem("h5ico_transfer", "转账") { showToolBox = false; startTransfer() }
+                if !isGroup {
+                    // 【v1.22】好友聊天：1v1 语音通话（TRTC）
+                    toolItemSys("phone.fill", "语音通话") { showToolBox = false; startVoiceCall() }
+                }
                 if isGroup {
                     toolItem("h5ico_recharge", "充值") { showToolBox = false; openCover(AnyView(RechargePage(qunId: chatId))) }
                     toolItem("h5ico_withdraw", "提现") { showToolBox = false; openCover(AnyView(WithdrawPage(qunId: chatId))) }
                 }
             }.padding(.vertical, 14)
         }
+    }
+
+    private func toolItemSys(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: icon).resizable().scaledToFit().frame(width: 34, height: 34)
+                    .foregroundColor(Color(hex: 0x333333)).padding(.top, 3)
+                Text(label).font(.system(size: 13)).foregroundColor(Color(hex: 0x777777))
+            }.frame(maxWidth: .infinity)
+        }.buttonStyle(.plain)
     }
 
     private func toolItem(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {

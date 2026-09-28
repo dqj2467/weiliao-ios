@@ -17,10 +17,13 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Install pods (TRTC)
+        run: pod install --repo-update
+
       - name: Archive (unsigned)
         run: |
           xcodebuild archive \
-            -project Weiliao.xcodeproj \
+            -workspace Weiliao.xcworkspace \
             -scheme Weiliao \
             -configuration Release \
             -destination "generic/platform=iOS" \

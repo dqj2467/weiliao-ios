@@ -39,6 +39,8 @@ struct RootContainer: View {
             .overlay(PayPwdOverlay())
             // v1.17：充值/提现语音播报（安卓 VoiceService 同口径），App 启动即开始轮询
             .onAppear { VoiceBroadcaster.shared.start() }
+            // v1.22：来电独立窗口触发器（1v1 语音通话）
+            .overlay(CallIncomingOverlay())
     }
 }
 
