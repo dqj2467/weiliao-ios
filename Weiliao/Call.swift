@@ -1,4 +1,6 @@
 import SwiftUI
+import AVFoundation
+import AudioToolbox
 import TXLiteAVSDK_TRTC
 
 // ============================================================
@@ -155,6 +157,8 @@ struct CallPage: View {
     @State var talkSec = 0
     @State var micOn = true
     @State var speaker = false
+    @State var ringPlayer: AVAudioPlayer?   // 被叫振铃：微信式铃声循环
+    @State var vibTimer: Timer?
     @State var stateTimer: Timer?
     @State var secTimer: Timer?
     var cloud = CloudBox()
@@ -226,8 +230,27 @@ struct CallPage: View {
             enterRoom()
             startStatePoll()
         } else {
+            startRing()          // 被叫：微信式来电铃声+震动
             startRingPoll()      // 接听前轮询对方取消
         }
+    }
+
+    // ---------- 来电铃声 ----------
+
+    private func startRing() {
+        if let url = Bundle.main.url(forResource: "ring", withExtension: "wav") {
+            ringPlayer = try? AVAudioPlayer(contentsOf: url)
+            ringPlayer?.numberOfLoops = -1
+            ringPlayer?.play()
+        }
+        vibTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+        }
+    }
+
+    private func stopRing() {
+        ringPlayer?.stop(); ringPlayer = nil
+        vibTimer?.invalidate(); vibTimer = nil
     }
 
     private func accept() {
@@ -306,6 +329,7 @@ struct CallPage: View {
     private func stopTimers() {
         stateTimer?.invalidate(); stateTimer = nil
         secTimer?.invalidate(); secTimer = nil
+        stopRing()
     }
 
     // ---------- TRTC ----------
@@ -323,6 +347,7 @@ struct CallPage: View {
 
     private func toTalk() {
         guard phase != 1 else { return }
+        stopRing()
         phase = 1
         talkSec = 0
         secTimer?.invalidate()
@@ -340,10 +365,15 @@ struct CallPage: View {
     // ---------- 小控件 ----------
 
     private func circleBtn(_ label: String, color: Color, action: @escaping () -> Void) -> some View {
+        // ★ZStack 显式居中：真机上出现过文字偏左，改圆+文字分层绝对居中
         Button(action: action) {
-            Text(label).font(.system(size: 13, weight: .medium)).foregroundColor(.white)
-                .frame(width: 64, height: 64)
-                .background(Circle().fill(color))
+            ZStack {
+                Circle().fill(color)
+                Text(label).font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(width: 64, height: 64)
         }.buttonStyle(.plain)
     }
 }
