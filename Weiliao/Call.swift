@@ -157,10 +157,16 @@ struct CallPage: View {
     @State var talkSec = 0
     @State var micOn = true
     @State var speaker = false
+    @State var answered = false          // 【v1.24】被叫已点接听（按钮消失+正在连接）
+    @State var enterRetry = 0            // 【v1.24】进房前置未就绪重试计数
+    @State var st1Since: Date? = nil     // 【v1.24】主叫：对方已接起始时间（15s 看门狗）
     @State var ringPlayer: AVAudioPlayer?   // 被叫振铃：微信式铃声循环
+    @State var backPlayer: AVAudioPlayer?   // 【v1.24】主叫回铃音：嘟——嘟——
+    @State var toneTimer: Timer?
     @State var vibTimer: Timer?
     @State var stateTimer: Timer?
     @State var secTimer: Timer?
+    @State var watchdogTimer: Timer?
     var cloud = CloudBox()
 
     var body: some View {
@@ -182,6 +188,8 @@ struct CallPage: View {
                         Text(tip).foregroundColor(Color(hex: 0x99FFFFFF))
                     } else if role == .caller {
                         Text("等待对方接听…").foregroundColor(Color(hex: 0x99FFFFFF))
+                    } else if answered {
+                        Text("正在连接…").foregroundColor(Color(hex: 0x99FFFFFF))   // 【v1.24】
                     } else {
                         Text("来电邀请").foregroundColor(Color(hex: 0x99FFFFFF))
                     }
@@ -189,12 +197,16 @@ struct CallPage: View {
 
                 Spacer()
 
-                if phase == 0 && role == .callee && tip.isEmpty {
-                    // 来电：拒接 + 接听
+                if phase == 0 && role == .callee && tip.isEmpty && !answered {
+                    // 来电：拒接 + 接听（接听后立即收起，防重复点报「通话已失效」）
                     HStack(spacing: 72) {
                         circleBtn("拒接", color: Color(hex: 0xFFFF4E43)) { reject() }
                         circleBtn("接听", color: Color(hex: 0x07C160)) { accept() }
                     }.padding(.bottom, 60)
+                } else if phase == 0 && role == .caller && tip.isEmpty {
+                    // 【v1.24 微信式】主叫振铃：只有红色挂断钮（绝不出现「接听」）
+                    circleBtn("挂断", color: Color(hex: 0xFFFF4E43)) { hangup() }
+                        .padding(.bottom, 60)
                 } else if phase == 1 {
                     // 通话中：静音 / 免提 / 挂断
                     HStack(spacing: 30) {
@@ -227,6 +239,7 @@ struct CallPage: View {
         CallManager.shared.active = true
         CallManager.shared.ensureUid()
         if role == .caller {
+            startBackTone()      // 【v1.24】主叫回铃音：嘟——嘟——（微信同款）
             enterRoom()
             startStatePoll()
         } else {
@@ -253,19 +266,58 @@ struct CallPage: View {
         vibTimer?.invalidate(); vibTimer = nil
     }
 
+    // ---------- 【v1.24】主叫回铃音：每 4 秒一声「嘟——」，接通/结束即停 ----------
+
+    private func startBackTone() {
+        if backPlayer == nil, let url = Bundle.main.url(forResource: "backtone", withExtension: "wav") {
+            backPlayer = try? AVAudioPlayer(contentsOf: url)
+        }
+        toneTimer?.invalidate()
+        toneTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
+            guard phase != 2, phase != 1 else { return }
+            backPlayer?.currentTime = 0
+            backPlayer?.play()
+        }
+        backPlayer?.currentTime = 0
+        backPlayer?.play()   // 立即响第一声
+    }
+
+    private func stopBackTone() {
+        toneTimer?.invalidate(); toneTimer = nil
+        backPlayer?.stop()
+    }
+
+    // ---------- 接听 / 拒接 / 挂断 ----------
+
     private func accept() {
         Api.shared.post("/Api/Call/answer.html", form: ["callid": String(info.callid)]) { r in
             if let r = r, r.status == 200, let d = r.data {
                 info.roomid = d.long("roomid")
                 info.sig = d.str("usersig")
                 info.appid = d.str("sdkappid")
-                DispatchQueue.main.async { self.enterRoom() }
+                DispatchQueue.main.async {
+                    // 【v1.24】对齐安卓 v5.59：接听后立即收起按钮+显示连接中，防重复点
+                    answered = true
+                    stopRing()
+                    enterRoom()
+                    startWatchdog(12, tip: "连接超时，请重试")
+                }
             } else {
                 DispatchQueue.main.async {
                     self.tip = "通话已失效"
                     self.phase = 2
                 }
             }
+        }
+    }
+
+    /** 【v1.24】接通看门狗：N 秒没进通话 → 明确报错退出（防静音挂死） */
+    private func startWatchdog(_ sec: Double, tip: String) {
+        watchdogTimer?.invalidate()
+        watchdogTimer = Timer.scheduledTimer(withTimeInterval: sec, repeats: false) { _ in
+            guard phase != 1, phase != 2 else { return }
+            logErr("watchdog \(Int(sec))s no-talk room=\(info.roomid)")
+            end(tip)
         }
     }
 
@@ -306,8 +358,16 @@ struct CallPage: View {
                     case 2: end("对方已拒接")
                     case 3: end("无人接听")
                     case 4: end("通话结束")
-                    case 1: if phase == 0 { tip = "已接通，正在连接…" }
-                    default: break
+                    case 1:
+                        if phase == 0 { tip = "已接通，正在连接…" }
+                        // 【v1.24 主叫看门狗】对方已接 15 秒没进通话 → 明确报错退出
+                        if st1Since == nil { st1Since = Date() }
+                        else if phase != 1, let s = st1Since, Date().timeIntervalSince(s) > 15 {
+                            logErr("caller watchdog 15s no-talk room=\(info.roomid)")
+                            end("连接异常，请重试")
+                        }
+                    default:
+                        st1Since = nil
                     }
                 }
             }
@@ -329,18 +389,47 @@ struct CallPage: View {
     private func stopTimers() {
         stateTimer?.invalidate(); stateTimer = nil
         secTimer?.invalidate(); secTimer = nil
+        watchdogTimer?.invalidate(); watchdogTimer = nil
+        stopBackTone()
         stopRing()
     }
 
     // ---------- TRTC ----------
 
+    /** 【v1.24】错误上报（对齐安卓 errlog，云端 errview 可远程读） */
+    private func logErr(_ s: String) {
+        Api.shared.post("/Api/Call/errlog.html",
+                        form: ["msg": s, "uid": String(CallManager.shared.uid()),
+                               "appid": info.appid, "roomid": String(info.roomid)]) { _ in }
+    }
+
     private func enterRoom() {
-        guard CallManager.shared.uid() > 0, info.roomid > 0, !info.appid.isEmpty, !info.sig.isEmpty else { return }
+        // 【v1.24】未就绪不再静默 return：延迟重试 6 次（对齐安卓 v5.57），仍失败明确报错
+        guard CallManager.shared.uid() > 0, info.roomid > 0, !info.appid.isEmpty, !info.sig.isEmpty else {
+            enterRetry += 1
+            logErr("enterRoom not ready uid=\(CallManager.shared.uid()) room=\(info.roomid) sigLen=\(info.sig.count) retry=\(enterRetry)")
+            if enterRetry > 6 { end("连接初始化失败"); return }
+            if CallManager.shared.uid() <= 0 { CallManager.shared.ensureUid() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                guard self.phase != 2 else { return }
+                self.enterRoom()
+            }
+            return
+        }
         cloud.enter(appid: UInt32(info.appid) ?? 0,
                     uid: String(CallManager.shared.uid()),
                     sig: info.sig,
                     roomid: UInt32(info.roomid)) { peerAudio in
-            if peerAudio { DispatchQueue.main.async { toTalk() } }
+            DispatchQueue.main.async {
+                if peerAudio { self.toTalk() }
+                else if self.phase == 1 { self.end("对方已挂断") }   // 【v1.24】通话中对方离开
+            }
+        }
+        // 【v1.24】进房失败：明确提示 + 已在 CloudBox 内上报云端
+        cloud.onFail = { code, _ in
+            DispatchQueue.main.async {
+                if self.phase != 2 { self.end("连接失败 Err\(code)") }
+            }
         }
         // 计时器在音频回调里启动
     }
@@ -348,6 +437,8 @@ struct CallPage: View {
     private func toTalk() {
         guard phase != 1 else { return }
         stopRing()
+        stopBackTone()          // 【v1.24】接通瞬间停回铃音
+        watchdogTimer?.invalidate(); watchdogTimer = nil
         phase = 1
         talkSec = 0
         secTimer?.invalidate()
@@ -384,10 +475,18 @@ struct CallPage: View {
 final class CloudBox: NSObject, TRTCCloudDelegate {
     var trtc: TRTCCloud?
     private var onPeerAudio: ((Bool) -> Void)?
+    var onFail: ((Int32, String) -> Void)?     // 【v1.24】进房失败回调
+    var errCtx: (appid: String, uid: String, roomid: String) = ("", "", "0")
+
+    private func logErr(_ s: String) {
+        Api.shared.post("/Api/Call/errlog.html",
+                        form: ["msg": s, "uid": errCtx.uid, "appid": errCtx.appid, "roomid": errCtx.roomid]) { _ in }
+    }
 
     func enter(appid: UInt32, uid: String, sig: String, roomid: UInt32, onPeerAudio: @escaping (Bool) -> Void) {
         guard trtc == nil else { return }
         self.onPeerAudio = onPeerAudio
+        errCtx = (String(appid), uid, String(roomid))
         let c = TRTCCloud.sharedInstance()
         c.delegate = self
         let p = TRTCParams()
@@ -411,11 +510,17 @@ final class CloudBox: NSObject, TRTCCloudDelegate {
 
     // MARK: - TRTCCloudDelegate（@objc 协议方法，不加 override）
     func onEnterRoom(_ result: Int) {
-        if result >= 0 { trtc?.startLocalAudio(.default) }
+        if result > 0 {
+            logErr("trace enterRoom ok room=\(errCtx.roomid)")   // 【v1.24】成功也留痕
+            trtc?.startLocalAudio(.default)
+        } else {
+            logErr("enterRoom fail result=\(result)")            // 【v1.24】失败上报（云端可读）
+            onFail?(Int32(result), "进房失败")
+        }
     }
 
     func onUserAudioAvailable(_ userId: String, available: Bool) {
-        if available { onPeerAudio?(true) }
+        onPeerAudio?(available)
     }
 
     func onRemoteUserLeaveRoom(_ userId: String, reason: Int) {
@@ -423,7 +528,7 @@ final class CloudBox: NSObject, TRTCCloudDelegate {
     }
 
     func onError(_ errCode: Int32, errMsg: String?, extraInfo: [AnyHashable: Any]?) {
-        print("TRTC err \(errCode) \(errMsg ?? "")")
+        logErr("onError \(errCode) \(errMsg ?? "")")             // 【v1.24】错误自动上报
     }
 }
 
