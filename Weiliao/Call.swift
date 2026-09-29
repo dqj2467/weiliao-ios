@@ -229,6 +229,27 @@ struct CallPage: View {
                 }
             }
         }
+        .overlay(
+            // 【v1.29】接通后左上角「收起」——微信式最小化：回大厅继续通话
+            VStack(spacing: 0) {
+                HStack {
+                    if phase == 1 {
+                        Button {
+                            CallWindowMgr.minimize()
+                        } label: {
+                            Text("收起")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Color(hex: 0xCCFFFFFF))
+                                .padding(.horizontal, 14).padding(.vertical, 8)
+                                .background(Capsule().fill(Color(hex: 0x4A4E54)))
+                        }.buttonStyle(.plain)
+                        .padding(.leading, 16)
+                    }
+                    Spacer()
+                }.padding(.top, 44)
+                Spacer()
+            }
+        )
         .onAppear { start() }
         .onDisappear { stopTimers() }
     }
@@ -336,6 +357,12 @@ struct CallPage: View {
         tip = t
         cloud.leave()
         stopTimers()
+        // 【v1.29】最小化期间通话结束：收掉通话窗+浮窗，Toast 告知结果
+        if CallWindowMgr.isMinimized {
+            cleanup()
+            CallWindowMgr.dismiss()
+            PayDialogs.toast("通话已结束（\(t)）")
+        }
     }
 
     // ---------- 信令轮询 ----------
@@ -539,6 +566,25 @@ final class CloudBox: NSObject, TRTCCloudDelegate {
 
 final class CallWindowMgr {
     static var win: UIWindow?
+    /// 【v1.29】通话最小化中：通话窗只是隐藏（CallPage/TRTC 都活着），浮窗挂在大厅上
+    static var isMinimized = false
+
+    /// 【v1.29】收起：通话页隐藏，挂微信式小浮窗（通话不断）
+    static func minimize() {
+        guard win != nil, isMinimized == false else { return }
+        win?.isHidden = true
+        isMinimized = true
+        CallMiniMgr.show()
+    }
+
+    /// 【v1.29】点浮窗回通话页
+    static func restore() {
+        guard isMinimized, win != nil else { return }
+        isMinimized = false
+        CallMiniMgr.hide()
+        win?.isHidden = false
+        win?.makeKeyAndVisible()
+    }
 
     /// 【v1.26】主叫入口：聊天页拨打后走独立 UIWindow（原 fullScreenCover 嵌套在聊天页 cover 里静默不显示——v1.25 实测：页面活着、音频通、界面看不见）
     static func presentCaller(_ info: CallInfo) {
@@ -579,9 +625,70 @@ final class CallWindowMgr {
     }
 
     static func dismiss() {
+        CallMiniMgr.hide()          // 【v1.29】通话真结束：小浮窗一并收掉
+        isMinimized = false
         win?.isHidden = true
         win?.rootViewController = nil
         win = nil
+    }
+}
+
+// ============================================================
+// 【v1.29】通话最小化浮窗（微信式）：一个刚好装下胶囊的小 UIWindow，
+// 只拦胶囊自身的触摸、不挡下层页面；可拖动，点一下回通话页。
+// 纯 UIKit 实现（浮窗要独立于 SwiftUI 生命周期，通话页隐藏时它必须一直活着）
+// ============================================================
+
+final class CallMiniMgr {
+    static var win: UIWindow?
+
+    static func show() {
+        guard win == nil,
+              let scene = UIApplication.shared.connectedScenes
+                  .compactMap({ $0 as? UIWindowScene }).first else { return }
+        let size = CGSize(width: 158, height: 40)
+        let w = UIWindow(windowScene: scene)
+        w.windowLevel = .alert + 3
+        w.backgroundColor = .clear
+        w.frame = CGRect(origin: CGPoint(x: UIScreen.main.bounds.width - size.width - 10,
+                                         y: UIScreen.main.bounds.height * 0.18),
+                         size: size)
+        let v = UIView(frame: w.bounds)
+        v.backgroundColor = UIColor(red: 0.10, green: 0.11, blue: 0.12, alpha: 0.92)
+        v.layer.cornerRadius = size.height / 2
+        v.layer.masksToBounds = true
+        let lb = UILabel()
+        lb.text = "📞 通话中 · 点击返回"
+        lb.font = .systemFont(ofSize: 12, weight: .medium)
+        lb.textColor = .white
+        lb.sizeToFit()
+        lb.center = CGPoint(x: v.bounds.midX, y: v.bounds.midY)
+        v.addSubview(lb)
+        v.isUserInteractionEnabled = true
+        v.addGestureRecognizer(UITapGestureRecognizer(target: CallMiniBox.shared, action: #selector(CallMiniBox.tapped)))
+        v.addGestureRecognizer(UIPanGestureRecognizer(target: CallMiniBox.shared, action: #selector(CallMiniBox.moved(_:))))
+        w.addSubview(v)
+        w.makeKeyAndVisible()
+        win = w
+    }
+
+    static func hide() {
+        win?.isHidden = true
+        win = nil
+    }
+}
+
+/// 浮窗手势响应盒（#selector 需要 @objc 实例）
+final class CallMiniBox: NSObject {
+    static let shared = CallMiniBox()
+    @objc func tapped() { CallWindowMgr.restore() }
+    @objc func moved(_ g: UIPanGestureRecognizer) {
+        guard let w = CallMiniMgr.win else { return }
+        let t = g.translation(in: w)
+        let b = UIScreen.main.bounds
+        w.center = CGPoint(x: min(max(w.center.x + t.x, 40), b.width - 40),
+                           y: min(max(w.center.y + t.y, 40), b.height - 60))
+        g.setTranslation(.zero, in: w)
     }
 }
 

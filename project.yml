@@ -17,15 +17,15 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Manual
         CODE_SIGNING_ALLOWED: "NO"
-        MARKETING_VERSION: "1.28"
-        CURRENT_PROJECT_VERSION: "28"
+        MARKETING_VERSION: "1.29"
+        CURRENT_PROJECT_VERSION: "29"
         SWIFT_VERSION: "5.9"
     info:
       path: Weiliao/Info.plist
       properties:
         CFBundleDisplayName: 微聊
-        CFBundleShortVersionString: "1.28"
-        CFBundleVersion: "28"
+        CFBundleShortVersionString: "1.29"
+        CFBundleVersion: "29"
         UIBackgroundModes: [audio]
         UILaunchScreen: {}
         NSAppTransportSecurity: { NSAllowsArbitraryLoads: true }
