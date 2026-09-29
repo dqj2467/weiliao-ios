@@ -2,7 +2,7 @@ import Foundation
 
 /// 网络层：URLSession + 共享 CookieStorage（PHPSESSID 自动携带，与网页版同一会话体系）
 final class Api {
-    static let host = "http://weiliao.tbb.wiki:8082"
+    static let host = "http://weiliao.tbb.wiki"
     static let shared = Api()
     private let session: URLSession
 
