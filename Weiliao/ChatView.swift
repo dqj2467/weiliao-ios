@@ -41,6 +41,7 @@ struct ChatScreen: View {
     @State var panelMembers: [JSONObject] = []
     @State var onlineNum = 0
     @State var moneyTotal = ""
+    @State var myMoney = ""   // 【v1.30】我在本群群钱包余额（面板头部「金额 X 元」）
     @State var delMode = false
     @State var delSel: Set<Int64> = []
 
@@ -476,6 +477,9 @@ struct ChatScreen: View {
         + Text(" 人 · 在线 ").font(.system(size: 13)).foregroundColor(Color(hex: 0x8A8A8A))
         + Text(String(onlineNum)).font(.system(size: 13, weight: .bold)).foregroundColor(Color(hex: 0x555555))
         + Text(" 人").font(.system(size: 13)).foregroundColor(Color(hex: 0x8A8A8A))
+        + (myMoney.isEmpty ? Text("") : Text(" · 金额 ").font(.system(size: 13)).foregroundColor(Color(hex: 0x8A8A8A))
+            + Text(myMoney).font(.system(size: 13, weight: .bold)).foregroundColor(Color(hex: 0xFA9D3B))
+            + Text(" 元").font(.system(size: 13)).foregroundColor(Color(hex: 0x8A8A8A)))
     }
 
     private func memberCell(_ o: JSONObject) -> some View {
@@ -937,6 +941,7 @@ struct ChatScreen: View {
                 panelMembers = r.arr
                 onlineNum = r.int("online_num")
                 moneyTotal = r.str("money_total")
+                myMoney = r.str("my_money")
                 for o in panelMembers where o.long("id") == myUid { myNick = o.str("nickname") }
             }
         }
