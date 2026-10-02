@@ -37,6 +37,10 @@ struct MainScreen: View {
     @State var firstLoad = true
     @State var contactSheet: ContactSheetKind? = nil
     @State var voiceOn = VoiceBroadcaster.shared.enabled   // v1.17 语音播报开关
+    // 【v1.31】扫一扫加好友
+    @State var showMyQr = false
+    @State var showScan = false
+    @State var scanResult: ScanResult? = nil
 
     let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
@@ -83,6 +87,18 @@ struct MainScreen: View {
         .background(Color.white)
         .onAppear { refreshAll() }
         .onReceive(timer) { _ in if tab == 0 { loadConvs(false) } }
+        // 【v1.31】我的二维码 / 扫一扫 / 扫码结果→自动搜索添加好友
+        .sheet(isPresented: $showMyQr) {
+            MyQrSheet(phone: meInfo?.str("phone") ?? "", nickname: meInfo?.str("nickname") ?? "")
+        }
+        .sheet(isPresented: $showScan) {
+            ScanQrSheet { kw in
+                if kw.isEmpty { PayDialogs.toast("不是微聊好友二维码") } else { scanResult = ScanResult(kw: kw) }
+            }
+        }
+        .sheet(item: $scanResult) { r in
+            AddFriendSheet(prefill: r.kw)
+        }
         .fullScreenCover(item: $openChat) { c in
             ChatScreen(isGroup: c.isGroup, chatId: c.id, title: c.title,
                        onClosed: { loadConvs(true) })
@@ -173,8 +189,8 @@ struct MainScreen: View {
     private var mePage: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 12) {
-                // ① 资料行（H5 口径：点击进个人信息页 gerenxinxi.html）
-                Button(action: { WebFallback.open(Api.host + "/Home/Member/gerenxinxi.html", title: "个人信息") }) {
+                // ① 资料行（v1.31：点击进「我的二维码」，对方扫一扫即可添加好友）
+                Button(action: { showMyQr = true }) {
                     HStack(spacing: 0) {
                         Avatar(url: meInfo?.str("headimgurl") ?? "", fallback: meInfo?.str("nickname") ?? "我", size: 60)
                             .padding(.trailing, 14)
@@ -191,6 +207,11 @@ struct MainScreen: View {
                     .padding(.horizontal, 15)
                     .frame(height: 76).background(Color.white)
                 }.buttonStyle(.plain)
+
+                // ①b 扫一扫（v1.31 与安卓 v5.73 同款：扫码添加好友）
+                meRowSys(iconSystem: "qrcode.viewfinder", label: "扫一扫", right: { EmptyView() }) {
+                    showScan = true
+                }
 
                 // ② 钱包
                 meRow(icon: "uc1", label: "钱包", right: {
@@ -245,6 +266,23 @@ struct MainScreen: View {
         Button(action: action) {
             HStack(spacing: 0) {
                 Image(icon).resizable().scaledToFit().frame(width: 25, height: 25).padding(.trailing, 14)
+                Text(label).font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
+                Spacer()
+                right()
+            }
+            .padding(.horizontal, 15)
+            .frame(height: 52).background(Color.white)
+        }.buttonStyle(.plain)
+    }
+
+    /// 【v1.31】图标用 SF Symbol 的行（扫一扫用 qrcode.viewfinder）
+    private func meRowSys<RT: View>(iconSystem: String, label: String, @ViewBuilder right: () -> RT,
+                                    action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 0) {
+                Image(systemName: iconSystem).resizable().scaledToFit()
+                    .frame(width: 25, height: 25).padding(.trailing, 14)
+                    .foregroundColor(Color(hex: 0x07C160))
                 Text(label).font(.system(size: 15)).foregroundColor(Color(hex: 0x333333))
                 Spacer()
                 right()

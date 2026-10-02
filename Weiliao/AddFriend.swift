@@ -27,6 +27,7 @@ struct SearchUser: Identifiable {
 
 struct AddFriendSheet: View {
     @Environment(\.presentationMode) var mode
+    var prefill: String = ""   // 【v1.31】扫一扫进入：预填账号并自动搜索
     @State var kw = ""
     @State var users: [SearchUser] = []
     @State var searched = false
@@ -82,6 +83,12 @@ struct AddFriendSheet: View {
             }
         }
         .background(Color(hex: 0xF5F6F7))
+        .onAppear {
+            if !prefill.isEmpty && !searched {
+                kw = prefill
+                search()
+            }
+        }
     }
 
     private func search() {
