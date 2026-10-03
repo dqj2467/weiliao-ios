@@ -221,10 +221,7 @@ struct MainScreen: View {
                     WebFallback.open(Api.host + "/Home/Member/redpacklog.html", title: "钱包")
                 }
 
-                // ③ 明细
-                meRow(icon: "uc2", label: "明细", right: { EmptyView() }) {
-                    WebFallback.open(Api.host + "/Home/Member/redpacklog.html", title: "余额明细")
-                }
+                // ③ 明细（v1.32 站长要求：整行删除，与钱包同一入口 redpacklog.html 重复）
 
                 // ⑤ 支付密码
                 meRow(icon: "uc4", label: "支付密码", right: {
@@ -234,16 +231,16 @@ struct MainScreen: View {
                     PayPwdSheet.shared.showSet = true
                 }
 
-                // ⑥ 语音播报（v1.17：安卓同款开关，充值/提现申请 TTS 播报，默认开）
+                // ⑥b 设置（H5 口径：进个人信息页；v1.32 与安卓同序：支付密码→设置→语音播报）
+                meRow(icon: "uc4", label: "设置", right: { EmptyView() }) {
+                    WebFallback.open(Api.host + "/Home/Member/gerenxinxi.html", title: "个人信息")
+                }
+
+                // ⑥c 语音播报（v1.17：安卓同款开关，充值/提现申请 TTS 播报，默认开）
                 meRow(icon: "uc4", label: "语音播报", right: {
                     Toggle("", isOn: $voiceOn).labelsHidden().fixedSize()
                 }) {
                     VoiceBroadcaster.shared.enabled = voiceOn
-                }
-
-                // ⑦ 设置（H5 口径：进个人信息页）
-                meRow(icon: "uc4", label: "设置", right: { EmptyView() }) {
-                    WebFallback.open(Api.host + "/Home/Member/gerenxinxi.html", title: "个人信息")
                 }
 
                 // ⑦ 退出登录
