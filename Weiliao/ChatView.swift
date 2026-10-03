@@ -444,7 +444,7 @@ struct ChatScreen: View {
                         openWeb(Api.host + "/Home/Group/msgsearch.html?qunid=" + String(chatId) + "&_native=1", "查找聊天记录")
                     }
                     panelOp("群公告", qunNotice.isEmpty ? "未设置" : "查看") { openCover(AnyView(NoticeSheet(notice: qunNotice))) }
-                    panelOp("我在本群的昵称", myNick) { openCover(AnyView(NickSheet(qunId: chatId, current: myNick, onDone: { loadPanel() }))) }
+                    // 【v1.32】站长要求：成员面板「我在本群的昵称」入口删除（群设置页已有同名编辑，重复入口）
                     panelOp("群设置", "") {
                         openWeb(Api.host + "/Home/Group/setting.html?qunid=" + String(chatId), "群设置")
                     }
