@@ -161,6 +161,16 @@ struct ChatScreen: View {
                         Image("h5ico_members").resizable().scaledToFit()
                             .frame(width: 26, height: 26).padding(.trailing, 14)
                     }
+                } else {
+                    // 【v1.33】站长要求：好友聊天右上角加「···」，删除好友收进去（原在底部工具面板）
+                    Button(action: {
+                        openCover(AnyView(SheetMenuView(title: title, items: ["删除好友"]) { i in
+                            if i == 0 { confirmDelFriend() }
+                        }))
+                    }) {
+                        Image("h5ico_members").resizable().scaledToFit()
+                            .frame(width: 26, height: 26).padding(.trailing, 14)
+                    }
                 }
             }
         }.frame(height: 48)
@@ -305,9 +315,8 @@ struct ChatScreen: View {
                 toolItem("h5ico_redpack", "红包") { showToolBox = false; openRedPacket() }
                 toolItem("h5ico_transfer", "转账") { showToolBox = false; startTransfer() }
                 if !isGroup {
-                    // 【v1.22】好友聊天：1v1 语音通话（TRTC）+ 删除好友
+                    // 【v1.33】好友聊天工具面板只留语音通话；删除好友已移到右上角「···」
                     toolItemSys("phone.fill", "语音通话") { showToolBox = false; startVoiceCall() }
-                    toolItemSys("person.badge.minus", "删除好友") { showToolBox = false; confirmDelFriend() }
                 }
                 if isGroup {
                     toolItem("h5ico_recharge", "充值") { showToolBox = false; openCover(AnyView(RechargePage(qunId: chatId))) }
