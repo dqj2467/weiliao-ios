@@ -193,9 +193,19 @@ struct FriendReqSheet: View {
                                             .background(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: 0xCCCCCC)))
                                     }.buttonStyle(.plain).padding(.leading, 8)
                                 } else {
-                                    Text(q.byMe ? (q.status == 1 ? "已同意" : "已拒绝")
-                                               : (q.status == 1 ? "对方已同意" : "对方已拒绝"))
-                                        .font(.system(size: 13)).foregroundColor(Color(hex: 0x999999))
+                                    HStack(spacing: 8) {
+                                        Text(q.byMe ? (q.status == 1 ? "已同意" : "已拒绝")
+                                                   : (q.status == 1 ? "对方已同意" : "对方已拒绝"))
+                                            .font(.system(size: 13)).foregroundColor(Color(hex: 0x999999))
+                                        // 【v1.32】站长要求：已处理记录加删除键
+                                        Button(action: { del(q) }) {
+                                            Text("删除").font(.system(size: 13, weight: .bold))
+                                                .foregroundColor(Color(hex: 0x576B95))
+                                                .padding(.horizontal, 12).padding(.vertical, 6)
+                                                .overlay(RoundedRectangle(cornerRadius: 4)
+                                                    .stroke(Color(hex: 0x576B95)))
+                                        }.buttonStyle(.plain)
+                                    }
                                 }
                             }
                             .padding(.horizontal, 15).padding(.vertical, 8)
@@ -226,6 +236,20 @@ struct FriendReqSheet: View {
         CallManager.shared.handleFriendReq(id: q.id, op: op) { ok, m in
             DispatchQueue.main.async {
                 PayDialogs.toast(ok ? (op == 1 ? "已添加" : "已拒绝") : (m.isEmpty ? "操作失败" : m))
+                load()
+            }
+        }
+    }
+
+    /// 【v1.32】删除已处理的好友申请记录（待处理的要先同意/拒绝）
+    private func del(_ q: CallManager.FriendReq) {
+        Api.shared.post("/Api/Friendreq/del.html", form: ["id": String(q.id)]) { r in
+            DispatchQueue.main.async {
+                if let r = r, r.status == 200 {
+                    PayDialogs.toast("已删除")
+                } else {
+                    PayDialogs.toast(r?.str("msg").isEmpty == false ? r!.str("msg") : "删除失败")
+                }
                 load()
             }
         }
